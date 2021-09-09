@@ -83,13 +83,13 @@ func (s *Scanner) getLineSizeExcludingLF() int {
 
 func (s *Scanner) getLineExcludingCR(lineSize int) string {
 	line := s.buffer[s.bufferLineStartPos : s.bufferLineStartPos+lineSize]
-	if line[len(line)-1] == '\r' {
+	if len(line) > 0 && line[len(line)-1] == '\r' {
 		return string(line[:len(line)-1])
 	}
 	return string(line)
 }
 
-func (s *Scanner) rearrangeBuffer(n int) error {
+func (s *Scanner) arrangeBuffer(n int) error {
 	lineSize := len(s.buffer[s.bufferLineStartPos:])
 	if lineSize+n > cap(s.buffer) {
 		return ErrBufferOverflow
@@ -111,7 +111,7 @@ func (s *Scanner) read() error {
 		s.endOfFile = true
 	}
 	if n > 0 {
-		if err := s.rearrangeBuffer(n); err != nil {
+		if err := s.arrangeBuffer(n); err != nil {
 			return err
 		}
 		s.buffer = append(s.buffer, s.chunk[:n]...)
@@ -137,16 +137,14 @@ func (s *Scanner) Line(lineCount int) (lines []string, err error) {
 			}
 			continue
 		}
-		if lineSize > 0 {
-			lines = append(lines, s.getLineExcludingCR(lineSize))
-			s.bufferLineStartPos += lineSize
-			s.readerLineStartPos += lineSize
-		}
+		lines = append(lines, s.getLineExcludingCR(lineSize))
+		s.bufferLineStartPos += lineSize
+		s.readerLineStartPos += lineSize
 		if s.endOfScan {
 			return lines, io.EOF
 		}
-		s.bufferLineStartPos++ // skip line feed position
-		s.readerLineStartPos++ // skip line feed position
+		s.bufferLineStartPos++
+		s.readerLineStartPos++
 		if len(lines) == lineCount {
 			return lines, nil
 		}
