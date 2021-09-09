@@ -22,8 +22,8 @@ func Test_SingleLineCount(t *testing.T) {
 	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
 	assert.Equal(t, scanner.bufferLineStartPos, 3)
 	assert.Equal(t, scanner.readerPos, 4)
-	assert.False(t, scanner.eof)
-	assert.False(t, scanner.eob)
+	assert.False(t, scanner.endOfFile)
+	assert.False(t, scanner.endOfScan)
 }
 
 func Test_EndOfFileBufferRemains(t *testing.T) {
@@ -43,8 +43,8 @@ func Test_EndOfFileBufferRemains(t *testing.T) {
 	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
 	assert.Equal(t, scanner.bufferLineStartPos, 9)
 	assert.Equal(t, scanner.readerPos, 13)
-	assert.True(t, scanner.eof)
-	assert.False(t, scanner.eob)
+	assert.True(t, scanner.endOfFile)
+	assert.False(t, scanner.endOfScan)
 }
 
 func Test_BufferOverflow(t *testing.T) {
@@ -62,8 +62,8 @@ func Test_BufferOverflow(t *testing.T) {
 	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
 	assert.Equal(t, scanner.bufferLineStartPos, 0)
 	assert.Equal(t, scanner.readerPos, 0)
-	assert.False(t, scanner.eof)
-	assert.False(t, scanner.eob)
+	assert.False(t, scanner.endOfFile)
+	assert.False(t, scanner.endOfScan)
 }
 
 func Test_ExceedLineCount(t *testing.T) {
@@ -83,8 +83,8 @@ func Test_ExceedLineCount(t *testing.T) {
 	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
 	assert.Equal(t, scanner.bufferLineStartPos, 5)
 	assert.Equal(t, scanner.readerPos, 8)
-	assert.True(t, scanner.eof)
-	assert.True(t, scanner.eob)
+	assert.True(t, scanner.endOfFile)
+	assert.True(t, scanner.endOfScan)
 }
 
 func Test_CarrageReturn(t *testing.T) {
@@ -104,8 +104,8 @@ func Test_CarrageReturn(t *testing.T) {
 	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
 	assert.Equal(t, scanner.bufferLineStartPos, 5)
 	assert.Equal(t, scanner.readerPos, 9)
-	assert.True(t, scanner.eof)
-	assert.True(t, scanner.eob)
+	assert.True(t, scanner.endOfFile)
+	assert.True(t, scanner.endOfScan)
 }
 
 func Test_Empty(t *testing.T) {
@@ -125,6 +125,6 @@ func Test_Empty(t *testing.T) {
 	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
 	assert.Equal(t, scanner.bufferLineStartPos, 5)
 	assert.Equal(t, scanner.readerPos, 9)
-	assert.True(t, scanner.eof)
-	assert.True(t, scanner.eob)
+	assert.True(t, scanner.endOfFile)
+	assert.True(t, scanner.endOfScan)
 }
