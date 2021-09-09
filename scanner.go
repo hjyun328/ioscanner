@@ -12,11 +12,13 @@ var (
 	ErrInvalidChunkSize  = errors.New("chunk size is invalid")
 	ErrInvalidBufferSize = errors.New("buffer size is invalid")
 	ErrGreaterBufferSize = errors.New("buffer size must be greater than chunk size")
+	ErrInvalidPosition   = errors.New("invalid position")
 )
 
 const (
 	defaultChunkSize  = 4096
 	defaultBufferSize = 1 << 20
+	endPosition       = -1
 )
 
 type Scanner struct {
@@ -42,6 +44,9 @@ func New(reader io.ReaderAt, position int) *Scanner {
 }
 
 func NewWithSize(reader io.ReaderAt, position int, chunkSize int, bufferSize int) *Scanner {
+	if position < 0 {
+		panic(ErrInvalidPosition)
+	}
 	if chunkSize <= 0 {
 		panic(ErrInvalidChunkSize)
 	}
@@ -70,6 +75,12 @@ func (s *Scanner) recoverPosition() {
 	s.bufferLineStartPos = s.backupBufferLineStartPos
 	s.readerPos = s.backupReaderPos
 	s.readerLineStartPos = s.backupBufferLineStartPos
+}
+
+func (s *Scanner) endPosition() {
+	s.bufferLineStartPos = endPosition
+	s.readerPos = endPosition
+	s.readerLineStartPos = endPosition
 }
 
 func (s *Scanner) getLineSizeExcludingLF() int {
@@ -120,9 +131,9 @@ func (s *Scanner) read() error {
 	return nil
 }
 
-func (s *Scanner) Line(lineCount int) (lines []string, err error) {
+func (s *Scanner) Line(count int) (lines []string, err error) {
 	s.backupPosition()
-	if lineCount <= 0 {
+	if count <= 0 {
 		return lines, ErrInvalidLineCount
 	}
 	if s.endOfScan {
@@ -138,14 +149,13 @@ func (s *Scanner) Line(lineCount int) (lines []string, err error) {
 			continue
 		}
 		lines = append(lines, s.getLineExcludingCR(lineSize))
-		s.bufferLineStartPos += lineSize
-		s.readerLineStartPos += lineSize
+		s.bufferLineStartPos += lineSize + 1
+		s.readerLineStartPos += lineSize + 1
 		if s.endOfScan {
+			s.endPosition()
 			return lines, io.EOF
 		}
-		s.bufferLineStartPos++
-		s.readerLineStartPos++
-		if len(lines) == lineCount {
+		if len(lines) == count {
 			return lines, nil
 		}
 	}
