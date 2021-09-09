@@ -1,4 +1,4 @@
-package ioscanner
+package linescanner
 
 import (
 	"github.com/stretchr/testify/assert"
