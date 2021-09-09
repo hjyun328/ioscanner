@@ -33,8 +33,8 @@ type Scanner struct {
 	backupReaderPos          int
 	backupReaderLineStartPos int
 
-	eof bool
-	eob bool
+	endOfFile bool
+	endOfScan bool
 }
 
 func New(reader io.ReaderAt, position int) *Scanner {
@@ -74,8 +74,8 @@ func (s *Scanner) recoverPosition() {
 
 func (s *Scanner) getLineSizeExcludingLF() int {
 	lineSize := bytes.IndexByte(s.buffer[s.bufferLineStartPos:], '\n')
-	if lineSize < 0 && s.eof {
-		s.eob = true
+	if lineSize < 0 && s.endOfFile {
+		s.endOfScan = true
 		return len(s.buffer[s.bufferLineStartPos:])
 	}
 	return lineSize
@@ -108,7 +108,7 @@ func (s *Scanner) read() error {
 		return err
 	}
 	if err == io.EOF {
-		s.eof = true
+		s.endOfFile = true
 	}
 	if n > 0 {
 		if err := s.rearrangeBuffer(n); err != nil {
@@ -125,7 +125,7 @@ func (s *Scanner) Line(lineCount int) (lines []string, err error) {
 	if lineCount <= 0 {
 		return lines, ErrInvalidLineCount
 	}
-	if s.eob {
+	if s.endOfScan {
 		return lines, io.EOF
 	}
 	for {
@@ -139,10 +139,10 @@ func (s *Scanner) Line(lineCount int) (lines []string, err error) {
 		}
 		if lineSize > 0 {
 			lines = append(lines, s.getLineExcludingCR(lineSize))
+			s.bufferLineStartPos += lineSize
+			s.readerLineStartPos += lineSize
 		}
-		s.bufferLineStartPos += lineSize
-		s.readerLineStartPos += lineSize
-		if s.eob {
+		if s.endOfScan {
 			return lines, io.EOF
 		}
 		s.bufferLineStartPos++ // skip line feed position
