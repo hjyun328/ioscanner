@@ -7,8 +7,11 @@ import (
 )
 
 var (
-	ErrBufferOverflow   = errors.New("buffer is overflow")
-	ErrInvalidLineCount = errors.New("line count is invalid")
+	ErrBufferOverflow    = errors.New("buffer is overflow")
+	ErrInvalidLineCount  = errors.New("line count is invalid")
+	ErrInvalidChunkSize  = errors.New("chunk size is invalid")
+	ErrInvalidBufferSize = errors.New("buffer size is invalid")
+	ErrGreaterBufferSize = errors.New("buffer size must be greater than chunk size")
 )
 
 const (
@@ -17,14 +20,21 @@ const (
 )
 
 type Scanner struct {
-	reader             io.ReaderAt
-	chunk              []byte
-	buffer             []byte
+	reader io.ReaderAt
+
+	chunk  []byte
+	buffer []byte
+
 	bufferLineStartPos int
-	filePos            int
-	fileLineStartPos   int
-	eof                bool
-	eob                bool
+	readerPos          int
+	readerLineStartPos int
+
+	backupBufferLineStartPos int
+	backupReaderPos          int
+	backupReaderLineStartPos int
+
+	eof bool
+	eob bool
 }
 
 func New(reader io.ReaderAt, position int) *Scanner {
@@ -32,30 +42,48 @@ func New(reader io.ReaderAt, position int) *Scanner {
 }
 
 func NewWithSize(reader io.ReaderAt, position int, chunkSize int, bufferSize int) *Scanner {
+	if chunkSize <= 0 {
+		panic(ErrInvalidChunkSize)
+	}
+	if bufferSize <= 0 {
+		panic(ErrInvalidBufferSize)
+	}
+	if chunkSize > bufferSize {
+		panic(ErrGreaterBufferSize)
+	}
 	return &Scanner{
 		reader:             reader,
 		chunk:              make([]byte, chunkSize),
 		buffer:             make([]byte, 0, bufferSize),
-		bufferLineStartPos: 0,
-		filePos:            position,
-		fileLineStartPos:   position,
-		eof:                false,
-		eob:                false,
+		readerPos:          position,
+		readerLineStartPos: position,
 	}
+}
+
+func (s *Scanner) backupPosition() {
+	s.backupBufferLineStartPos = s.bufferLineStartPos
+	s.backupReaderPos = s.readerPos
+	s.backupBufferLineStartPos = s.readerLineStartPos
+}
+
+func (s *Scanner) recoverPosition() {
+	s.bufferLineStartPos = s.backupBufferLineStartPos
+	s.readerPos = s.backupReaderPos
+	s.readerLineStartPos = s.backupBufferLineStartPos
 }
 
 func (s *Scanner) getLineSizeExcludingLF() int {
 	lineSize := bytes.IndexByte(s.buffer[s.bufferLineStartPos:], '\n')
 	if lineSize < 0 && s.eof {
 		s.eob = true
-		lineSize = len(s.buffer[s.bufferLineStartPos:])
+		return len(s.buffer[s.bufferLineStartPos:])
 	}
 	return lineSize
 }
 
 func (s *Scanner) getLineExcludingCR(lineSize int) string {
 	line := s.buffer[s.bufferLineStartPos : s.bufferLineStartPos+lineSize]
-	if len(line) > 0 && line[len(line)-1] == '\r' {
+	if line[len(line)-1] == '\r' {
 		return string(line[:len(line)-1])
 	}
 	return string(line)
@@ -75,7 +103,7 @@ func (s *Scanner) rearrangeBuffer(n int) error {
 }
 
 func (s *Scanner) read() error {
-	n, err := s.reader.ReadAt(s.chunk, int64(s.filePos))
+	n, err := s.reader.ReadAt(s.chunk, int64(s.readerPos))
 	if err != nil && err != io.EOF {
 		return err
 	}
@@ -83,16 +111,17 @@ func (s *Scanner) read() error {
 		s.eof = true
 	}
 	if n > 0 {
-		s.filePos += n
 		if err := s.rearrangeBuffer(n); err != nil {
 			return err
 		}
 		s.buffer = append(s.buffer, s.chunk[:n]...)
+		s.readerPos += n
 	}
 	return nil
 }
 
 func (s *Scanner) Line(lineCount int) (lines []string, err error) {
+	s.backupPosition()
 	if lineCount <= 0 {
 		return lines, ErrInvalidLineCount
 	}
@@ -103,16 +132,21 @@ func (s *Scanner) Line(lineCount int) (lines []string, err error) {
 		lineSize := s.getLineSizeExcludingLF()
 		if lineSize < 0 {
 			if err := s.read(); err != nil {
+				s.recoverPosition()
 				return nil, err
 			}
 			continue
 		}
-		lines = append(lines, s.getLineExcludingCR(lineSize))
-		s.bufferLineStartPos += lineSize + 1
-		s.fileLineStartPos += lineSize + 1
+		if lineSize > 0 {
+			lines = append(lines, s.getLineExcludingCR(lineSize))
+		}
+		s.bufferLineStartPos += lineSize
+		s.readerLineStartPos += lineSize
 		if s.eob {
 			return lines, io.EOF
 		}
+		s.bufferLineStartPos++ // skip line feed position
+		s.readerLineStartPos++ // skip line feed position
 		if len(lines) == lineCount {
 			return lines, nil
 		}
@@ -120,5 +154,5 @@ func (s *Scanner) Line(lineCount int) (lines []string, err error) {
 }
 
 func (s *Scanner) Position() int {
-	return s.fileLineStartPos
+	return s.readerLineStartPos
 }
