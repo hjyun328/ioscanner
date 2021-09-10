@@ -12,7 +12,6 @@ var (
 	ErrInvalidBufferSize = errors.New("buffer size is invalid")
 	ErrGreaterBufferSize = errors.New("buffer size must be greater than chunk size")
 	ErrBufferOverflow    = errors.New("buffer is overflow")
-	ErrInvalidLineCount  = errors.New("line count is invalid")
 )
 
 const (
@@ -29,7 +28,7 @@ const (
 )
 
 type LineScanner interface {
-	Lines(count int) (lines []string, err error)
+	Line() (line string, err error)
 	Position() int
 }
 

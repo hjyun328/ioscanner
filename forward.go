@@ -70,7 +70,7 @@ func (s *forward) endPosition() {
 	s.readerLineStartPos = endPosition
 }
 
-func (s *forward) getLineSizeExcludingLF() int {
+func (s *forward) getLineSizeExcludingLineFeed() int {
 	lineSize := bytes.IndexByte(s.buffer[s.bufferLineStartPos:], '\n')
 	if lineSize < 0 && s.endOfFile {
 		s.endOfScan = true
@@ -79,12 +79,8 @@ func (s *forward) getLineSizeExcludingLF() int {
 	return lineSize
 }
 
-func (s *forward) getLineExcludingCR(lineSize int) string {
-	line := s.buffer[s.bufferLineStartPos : s.bufferLineStartPos+lineSize]
-	if len(line) > 0 && line[len(line)-1] == '\r' {
-		return string(line[:len(line)-1])
-	}
-	return string(line)
+func (s *forward) getLineExcludingCarrageReturn(lineSize int) string {
+	return removeCarrageReturn(s.buffer[s.bufferLineStartPos : s.bufferLineStartPos+lineSize])
 }
 
 func (s *forward) arrangeBuffer(n int) error {
@@ -105,9 +101,6 @@ func (s *forward) read() error {
 	if err != nil && err != io.EOF {
 		return err
 	}
-	if err == io.EOF {
-		s.endOfFile = true
-	}
 	if n > 0 {
 		if err := s.arrangeBuffer(n); err != nil {
 			return err
@@ -115,36 +108,35 @@ func (s *forward) read() error {
 		s.buffer = append(s.buffer, s.chunk[:n]...)
 		s.readerPos += n
 	}
+	if err == io.EOF {
+		s.endOfFile = true
+		s.readerPos = -1
+	}
 	return nil
 }
 
-func (s *forward) Lines(count int) (lines []string, err error) {
-	s.backupPosition()
-	if count <= 0 {
-		return lines, ErrInvalidLineCount
-	}
+func (s *forward) Line() (string, error) {
 	if s.endOfScan {
-		return lines, io.EOF
+		return "", io.EOF
 	}
+	s.backupPosition()
 	for {
-		lineSize := s.getLineSizeExcludingLF()
+		lineSize := s.getLineSizeExcludingLineFeed()
 		if lineSize < 0 {
 			if err := s.read(); err != nil {
 				s.recoverPosition()
-				return nil, err
+				return "", err
 			}
 			continue
 		}
-		lines = append(lines, s.getLineExcludingCR(lineSize))
+		line := s.getLineExcludingCarrageReturn(lineSize)
 		s.bufferLineStartPos += lineSize + 1
 		s.readerLineStartPos += lineSize + 1
 		if s.endOfScan {
 			s.endPosition()
-			return lines, io.EOF
+			return line, io.EOF
 		}
-		if len(lines) == count {
-			return lines, nil
-		}
+		return line, nil
 	}
 }
 
