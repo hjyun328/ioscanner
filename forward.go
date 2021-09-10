@@ -61,7 +61,7 @@ func (s *forward) backupPosition() {
 func (s *forward) recoverPosition() {
 	s.bufferLineStartPos = s.backupBufferLineStartPos
 	s.readerPos = s.backupReaderPos
-	s.readerLineStartPos = s.backupBufferLineStartPos
+	s.readerLineStartPos = s.backupReaderLineStartPos
 }
 
 func (s *forward) endPosition() {
