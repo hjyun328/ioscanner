@@ -45,75 +45,75 @@ func TestNewForwardWithSize_GreaterBufferSize(t *testing.T) {
 
 func TestBackupPosition(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.bufferLineStartPos = 1
-	scanner.readerPos = 2
-	scanner.readerLineStartPos = 3
+	forward := newForward(strings.NewReader(""), 0)
+	forward.bufferLineStartPos = 1
+	forward.readerPos = 2
+	forward.readerLineStartPos = 3
 
 	// when
-	scanner.backupPosition()
+	forward.backupPosition()
 
 	// then
-	assert.Equal(t, scanner.bufferLineStartPos, scanner.backupBufferLineStartPos)
-	assert.Equal(t, scanner.readerPos, scanner.backupReaderPos)
-	assert.Equal(t, scanner.readerLineStartPos, scanner.backupReaderLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, forward.backupBufferLineStartPos)
+	assert.Equal(t, forward.readerPos, forward.backupReaderPos)
+	assert.Equal(t, forward.readerLineStartPos, forward.backupReaderLineStartPos)
 }
 
 func TestRecoverPosition(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.bufferLineStartPos = 1
-	scanner.readerPos = 2
-	scanner.readerLineStartPos = 3
-	scanner.backupPosition()
-	scanner.bufferLineStartPos = 4
-	scanner.readerPos = 5
-	scanner.readerLineStartPos = 6
+	forward := newForward(strings.NewReader(""), 0)
+	forward.bufferLineStartPos = 1
+	forward.readerPos = 2
+	forward.readerLineStartPos = 3
+	forward.backupPosition()
+	forward.bufferLineStartPos = 4
+	forward.readerPos = 5
+	forward.readerLineStartPos = 6
 
 	// when
-	scanner.recoverPosition()
+	forward.recoverPosition()
 
 	// then
-	assert.Equal(t, scanner.bufferLineStartPos, 1)
-	assert.Equal(t, scanner.readerPos, 2)
-	assert.Equal(t, scanner.readerLineStartPos, 3)
+	assert.Equal(t, forward.bufferLineStartPos, 1)
+	assert.Equal(t, forward.readerPos, 2)
+	assert.Equal(t, forward.readerLineStartPos, 3)
 }
 
 func TestEndPosition(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.bufferLineStartPos = 1
-	scanner.readerPos = 2
-	scanner.readerLineStartPos = 3
+	forward := newForward(strings.NewReader(""), 0)
+	forward.bufferLineStartPos = 1
+	forward.readerPos = 2
+	forward.readerLineStartPos = 3
 
 	// when
-	scanner.endPosition()
+	forward.endPosition()
 
 	// then
-	assert.Equal(t, scanner.bufferLineStartPos, -1)
-	assert.Equal(t, scanner.readerPos, -1)
-	assert.Equal(t, scanner.readerLineStartPos, -1)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.Equal(t, forward.readerLineStartPos, endPosition)
 }
 
 func TestGetLineSizeExcludingLF(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, "abcdefg\n"...)
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, "abcdefg\n"...)
 
 	// when
-	lineSize := scanner.getLineSizeExcludingLF()
+	lineSize := forward.getLineSizeExcludingLF()
 
 	// then
 	assert.Equal(t, lineSize, 7)
 }
 
-func TestGetLineSizeExcludingLF_OnlyLineFeed(t *testing.T) {
+func TestGetLineSizeExcludingLF_OnlyLinesFeed(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, "\n"...)
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, "\n"...)
 
 	// when
-	lineSize := scanner.getLineSizeExcludingLF()
+	lineSize := forward.getLineSizeExcludingLF()
 
 	// then
 	assert.Equal(t, lineSize, 0)
@@ -121,23 +121,23 @@ func TestGetLineSizeExcludingLF_OnlyLineFeed(t *testing.T) {
 
 func TestGetLineSizeExcludingLF_WithCarrageReturn(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, "abcdefg\r\n"...)
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, "abcdefg\r\n"...)
 
 	// when
-	lineSize := scanner.getLineSizeExcludingLF()
+	lineSize := forward.getLineSizeExcludingLF()
 
 	// then
 	assert.Equal(t, lineSize, 8)
 }
 
-func TestGetLineSizeExcludingLF_WithoutLineFeed(t *testing.T) {
+func TestGetLineSizeExcludingLF_WithoutLinesFeed(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, "abcdefg"...)
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, "abcdefg"...)
 
 	// when
-	lineSize := scanner.getLineSizeExcludingLF()
+	lineSize := forward.getLineSizeExcludingLF()
 
 	// then
 	assert.Equal(t, lineSize, -1)
@@ -145,11 +145,11 @@ func TestGetLineSizeExcludingLF_WithoutLineFeed(t *testing.T) {
 
 func TestGetLineSizeExcludingLF_Empty(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, ""...)
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, ""...)
 
 	// when
-	lineSize := scanner.getLineSizeExcludingLF()
+	lineSize := forward.getLineSizeExcludingLF()
 
 	// then
 	assert.Equal(t, lineSize, -1)
@@ -157,366 +157,385 @@ func TestGetLineSizeExcludingLF_Empty(t *testing.T) {
 
 func TestGetLineSizeExcludingLF_EndOfFile(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, "abcdefg"...)
-	scanner.endOfFile = true
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, "abcdefg"...)
+	forward.endOfFile = true
 
 	// when
-	lineSize := scanner.getLineSizeExcludingLF()
+	lineSize := forward.getLineSizeExcludingLF()
 
 	// then
 	assert.Equal(t, lineSize, 7)
-	assert.True(t, scanner.endOfScan)
+	assert.True(t, forward.endOfScan)
 }
 
 func TestGetLineExcludingCR(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, "abcdefg\r"...)
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, "abcdefg\r"...)
 
 	// when
-	line := scanner.getLineExcludingCR(8)
+	Lines := forward.getLineExcludingCR(8)
 
 	// then
-	assert.Equal(t, line, "abcdefg")
+	assert.Equal(t, Lines, "abcdefg")
 }
 
 func TestGetLineExcludingCR_WithoutCarrageReturn(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, "abcdefg"...)
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, "abcdefg"...)
 
 	// when
-	line := scanner.getLineExcludingCR(7)
+	Lines := forward.getLineExcludingCR(7)
 
 	// then
-	assert.Equal(t, line, "abcdefg")
+	assert.Equal(t, Lines, "abcdefg")
 }
 
 func TestGetLineExcludingCR_Empty(t *testing.T) {
 	// given
-	scanner := newForward(strings.NewReader(""), 0)
-	scanner.buffer = append(scanner.buffer, ""...)
+	forward := newForward(strings.NewReader(""), 0)
+	forward.buffer = append(forward.buffer, ""...)
 
 	// when
-	line := scanner.getLineExcludingCR(0)
+	Lines := forward.getLineExcludingCR(0)
 
 	// then
-	assert.Equal(t, line, "")
+	assert.Equal(t, Lines, "")
 }
 
 func TestArrangeBuffer(t *testing.T) {
 	// given
-	scanner := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
-	scanner.buffer = append(scanner.buffer, "abcdefg"...)
-	scanner.bufferLineStartPos = 3
+	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
+	forward.buffer = append(forward.buffer, "abcdefg"...)
+	forward.bufferLineStartPos = 3
 
 	// when
-	err := scanner.arrangeBuffer(3)
+	err := forward.arrangeBuffer(3)
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.buffer, []byte("defg"))
-	assert.Equal(t, scanner.bufferLineStartPos, 0)
+	assert.Equal(t, forward.buffer, []byte("defg"))
+	assert.Equal(t, forward.bufferLineStartPos, 0)
 }
 
 func TestArrangeBuffer_BufferOverflow(t *testing.T) {
 	// given
-	scanner := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
-	scanner.buffer = append(scanner.buffer, "abcdefg"...)
-	scanner.bufferLineStartPos = 3
+	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
+	forward.buffer = append(forward.buffer, "abcdefg"...)
+	forward.bufferLineStartPos = 3
 
 	// when
-	err := scanner.arrangeBuffer(4)
+	err := forward.arrangeBuffer(4)
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
-	assert.Equal(t, scanner.buffer, []byte("abcdefg"))
-	assert.Equal(t, scanner.bufferLineStartPos, 3)
+	assert.Equal(t, forward.buffer, []byte("abcdefg"))
+	assert.Equal(t, forward.bufferLineStartPos, 3)
 }
 
 func TestArrangeBuffer_NotArranged(t *testing.T) {
 	// given
-	scanner := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
-	scanner.buffer = append(scanner.buffer, "abcde"...)
-	scanner.bufferLineStartPos = 3
+	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
+	forward.buffer = append(forward.buffer, "abcde"...)
+	forward.bufferLineStartPos = 3
 
 	// when
-	err := scanner.arrangeBuffer(2)
+	err := forward.arrangeBuffer(2)
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.buffer, []byte("abcde"))
-	assert.Equal(t, scanner.bufferLineStartPos, 3)
+	assert.Equal(t, forward.buffer, []byte("abcde"))
+	assert.Equal(t, forward.bufferLineStartPos, 3)
 }
 
 func TestRead(t *testing.T) {
 	// given
-	scanner := newForwardWithSize(strings.NewReader("abcdefghijklmnop"), 0, 4, 8)
+	forward := newForwardWithSize(strings.NewReader("abcdefghijklmnop"), 0, 4, 8)
 
 	// when
-	err := scanner.read()
+	err := forward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, []byte("abcd"))
-	assert.Equal(t, scanner.buffer, []byte("abcd"))
-	assert.Equal(t, scanner.bufferLineStartPos, 0)
-	assert.Equal(t, scanner.readerPos, 4)
-	assert.False(t, scanner.endOfFile)
+	assert.Equal(t, forward.chunk, []byte("abcd"))
+	assert.Equal(t, forward.buffer, []byte("abcd"))
+	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, forward.readerPos, 4)
+	assert.False(t, forward.endOfFile)
 
 	// when
-	err = scanner.read()
+	err = forward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, []byte("efgh"))
-	assert.Equal(t, scanner.buffer, []byte("abcdefgh"))
-	assert.Equal(t, scanner.bufferLineStartPos, 0)
-	assert.Equal(t, scanner.readerPos, 8)
-	assert.False(t, scanner.endOfFile)
+	assert.Equal(t, forward.chunk, []byte("efgh"))
+	assert.Equal(t, forward.buffer, []byte("abcdefgh"))
+	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, forward.readerPos, 8)
+	assert.False(t, forward.endOfFile)
 }
 
 func TestRead_EndOfFile(t *testing.T) {
 	// given
-	scanner := newForwardWithSize(strings.NewReader("abc"), 0, 4, 7)
+	forward := newForwardWithSize(strings.NewReader("abc"), 0, 4, 7)
 
 	// when
-	err := scanner.read()
+	err := forward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, append([]byte("abc"), 0x00))
-	assert.Equal(t, scanner.buffer, []byte("abc"))
-	assert.Equal(t, scanner.bufferLineStartPos, 0)
-	assert.Equal(t, scanner.readerPos, 3)
-	assert.True(t, scanner.endOfFile)
+	assert.Equal(t, forward.chunk, append([]byte("abc"), 0x00))
+	assert.Equal(t, forward.buffer, []byte("abc"))
+	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, forward.readerPos, 3)
+	assert.True(t, forward.endOfFile)
 }
 
 func TestRead_Arranged(t *testing.T) {
 	// given
-	scanner := newForwardWithSize(strings.NewReader("abcdefghijk"), 7, 3, 7)
-	scanner.buffer = append(scanner.buffer, "abcdefg"...)
-	scanner.bufferLineStartPos = 3
+	forward := newForwardWithSize(strings.NewReader("abcdefghijk"), 7, 3, 7)
+	forward.buffer = append(forward.buffer, "abcdefg"...)
+	forward.bufferLineStartPos = 3
 
 	// when
-	err := scanner.read()
+	err := forward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, []byte("hij"))
-	assert.Equal(t, scanner.buffer, []byte("defghij"))
-	assert.Equal(t, scanner.bufferLineStartPos, 0)
-	assert.Equal(t, scanner.readerPos, 10)
-	assert.False(t, scanner.endOfFile)
+	assert.Equal(t, forward.chunk, []byte("hij"))
+	assert.Equal(t, forward.buffer, []byte("defghij"))
+	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, forward.readerPos, 10)
+	assert.False(t, forward.endOfFile)
 }
 
 func TestRead_BufferOverflow(t *testing.T) {
 	// given
-	scanner := newForwardWithSize(strings.NewReader("abcdefghijk"), 7, 4, 7)
-	scanner.buffer = append(scanner.buffer, "abcdefg"...)
-	scanner.bufferLineStartPos = 3
+	forward := newForwardWithSize(strings.NewReader("abcdefghijk"), 7, 4, 7)
+	forward.buffer = append(forward.buffer, "abcdefg"...)
+	forward.bufferLineStartPos = 3
 
 	// when
-	err := scanner.read()
+	err := forward.read()
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
-	assert.Equal(t, scanner.chunk, []byte("hijk"))
-	assert.Equal(t, scanner.buffer, []byte("abcdefg"))
-	assert.Equal(t, scanner.bufferLineStartPos, 3)
-	assert.Equal(t, scanner.readerPos, 7)
-	assert.False(t, scanner.endOfFile)
+	assert.Equal(t, forward.chunk, []byte("hijk"))
+	assert.Equal(t, forward.buffer, []byte("abcdefg"))
+	assert.Equal(t, forward.bufferLineStartPos, 3)
+	assert.Equal(t, forward.readerPos, 7)
+	assert.False(t, forward.endOfFile)
 }
 
-func TestLine_SingleLineCount(t *testing.T) {
+func TestLines_WithSingleLinesCount(t *testing.T) {
 	// given
 	reader := strings.NewReader("ab\ncdefg")
-	scanner := newForwardWithSize(reader, 0, 4, 5)
+	forward := newForwardWithSize(reader, 0, 4, 5)
 
 	// when
-	line, err := scanner.Line(1)
+	lines, err := forward.Lines(1)
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, line, []string{"ab"})
-	assert.Equal(t, scanner.Position(), 3)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, 3)
-	assert.Equal(t, scanner.readerPos, 4)
-	assert.False(t, scanner.endOfFile)
-	assert.False(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{"ab"})
+	assert.Equal(t, forward.Position(), 3)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, 3)
+	assert.Equal(t, forward.readerPos, 4)
+	assert.False(t, forward.endOfFile)
+	assert.False(t, forward.endOfScan)
 }
 
-func TestLine_EndOfFileBufferRemains(t *testing.T) {
+func TestLines_EndOfFileButNotEndOfScan(t *testing.T) {
 	// given
 	reader := strings.NewReader("ab\ncdefg\nhijk")
-	scanner := newForward(reader, 0)
+	forward := newForward(reader, 0)
 
 	// when
-	line, err := scanner.Line(2)
+	lines, err := forward.Lines(2)
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, line, []string{"ab", "cdefg"})
-	assert.Equal(t, scanner.Position(), 9)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, 9)
-	assert.Equal(t, scanner.readerPos, 13)
-	assert.True(t, scanner.endOfFile)
-	assert.False(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{"ab", "cdefg"})
+	assert.Equal(t, forward.Position(), 9)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, 9)
+	assert.Equal(t, forward.readerPos, 13)
+	assert.True(t, forward.endOfFile)
+	assert.False(t, forward.endOfScan)
 }
 
-func TestLine_BufferOverflow(t *testing.T) {
+func TestLines_BufferOverflow(t *testing.T) {
 	// given
 	reader := strings.NewReader("ab\ncdefg")
-	scanner := newForwardWithSize(reader, 0, 4, 4)
+	forward := newForwardWithSize(reader, 0, 4, 4)
 
 	// when
-	line, err := scanner.Line(2)
+	lines, err := forward.Lines(2)
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
-	assert.Nil(t, line)
-	assert.Equal(t, scanner.Position(), 0)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, 0)
-	assert.Equal(t, scanner.readerPos, 0)
-	assert.False(t, scanner.endOfFile)
-	assert.False(t, scanner.endOfScan)
+	assert.Nil(t, lines)
+	assert.Equal(t, forward.Position(), 0)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, forward.readerPos, 0)
+	assert.False(t, forward.endOfFile)
+	assert.False(t, forward.endOfScan)
 }
 
-func TestLine_ExceedLineCount(t *testing.T) {
+func TestLines_WithExceedLinesCount(t *testing.T) {
 	// given
 	reader := strings.NewReader("ab\ncdefg")
-	scanner := newForwardWithSize(reader, 0, 4, 5)
+	forward := newForwardWithSize(reader, 0, 4, 5)
 
 	// when
-	line, err := scanner.Line(100)
+	lines, err := forward.Lines(100)
 
 	// then
 	assert.NotNil(t, err)
-	assert.Equal(t, line, []string{"ab", "cdefg"})
-	assert.Equal(t, scanner.Position(), endPosition)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, endPosition)
-	assert.Equal(t, scanner.readerPos, endPosition)
-	assert.True(t, scanner.endOfFile)
-	assert.True(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{"ab", "cdefg"})
+	assert.Equal(t, forward.Position(), endPosition)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.True(t, forward.endOfFile)
+	assert.True(t, forward.endOfScan)
 }
 
-func TestLine_Empty(t *testing.T) {
+func TestLines_WithEmpty(t *testing.T) {
 	// given
 	reader := strings.NewReader("")
-	scanner := newForwardWithSize(reader, 0, 4, 4)
+	forward := newForwardWithSize(reader, 0, 4, 4)
 
 	// when
-	line, err := scanner.Line(100)
+	lines, err := forward.Lines(100)
 
 	// then
 	assert.Equal(t, err, io.EOF)
-	assert.Equal(t, line, []string{""})
-	assert.Equal(t, scanner.Position(), endPosition)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, endPosition)
-	assert.Equal(t, scanner.readerPos, endPosition)
-	assert.True(t, scanner.endOfFile)
-	assert.True(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{""})
+	assert.Equal(t, forward.Position(), endPosition)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.True(t, forward.endOfFile)
+	assert.True(t, forward.endOfScan)
 }
 
-func TestLine_TextOnly(t *testing.T) {
+func TestLines_WithTextOnly(t *testing.T) {
 	// given
 	reader := strings.NewReader("abcdefg")
-	scanner := newForward(reader, 0)
+	forward := newForward(reader, 0)
 
 	// when
-	line, err := scanner.Line(100)
+	lines, err := forward.Lines(100)
 
 	// then
 	assert.Equal(t, err, io.EOF)
-	assert.Equal(t, line, []string{"abcdefg"})
-	assert.Equal(t, scanner.Position(), endPosition)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, endPosition)
-	assert.Equal(t, scanner.readerPos, endPosition)
-	assert.True(t, scanner.endOfFile)
-	assert.True(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{"abcdefg"})
+	assert.Equal(t, forward.Position(), endPosition)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.True(t, forward.endOfFile)
+	assert.True(t, forward.endOfScan)
 }
 
-func TestLine_LineFeedOnly(t *testing.T) {
+func TestLines_WithLinesFeedOnly(t *testing.T) {
 	// given
 	reader := strings.NewReader("\n\n\n")
-	scanner := newForward(reader, 0)
+	forward := newForward(reader, 0)
 
 	// when
-	line, err := scanner.Line(100)
+	lines, err := forward.Lines(100)
 
 	// then
 	assert.Equal(t, err, io.EOF)
-	assert.Equal(t, line, []string{"", "", "", ""})
-	assert.Equal(t, scanner.Position(), endPosition)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, endPosition)
-	assert.Equal(t, scanner.readerPos, endPosition)
-	assert.True(t, scanner.endOfFile)
-	assert.True(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{"", "", "", ""})
+	assert.Equal(t, forward.Position(), endPosition)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.True(t, forward.endOfFile)
+	assert.True(t, forward.endOfScan)
 }
 
-func TestLine_WithCarrageReturn(t *testing.T) {
+func TestLines_WithCarrageReturn(t *testing.T) {
 	// given
 	reader := strings.NewReader("ab\r\ncdefg")
-	scanner := newForwardWithSize(reader, 0, 4, 5)
+	forward := newForwardWithSize(reader, 0, 4, 5)
 
 	// when
-	line, err := scanner.Line(100)
+	lines, err := forward.Lines(100)
 
 	// then
 	assert.NotNil(t, err)
-	assert.Equal(t, len(line), 2)
-	assert.Equal(t, line[0], "ab")
-	assert.Equal(t, line[1], "cdefg")
-	assert.Equal(t, scanner.Position(), endPosition)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, endPosition)
-	assert.Equal(t, scanner.readerPos, endPosition)
-	assert.True(t, scanner.endOfFile)
-	assert.True(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{"ab", "cdefg"})
+	assert.Equal(t, forward.Position(), endPosition)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.True(t, forward.endOfFile)
+	assert.True(t, forward.endOfScan)
 }
 
-func TestLine_WithPosition(t *testing.T) {
+func TestLines_WithPosition(t *testing.T) {
 	// given
 	reader := strings.NewReader("ab\ncdefg")
-	scanner := newForward(reader, 3)
+	forward := newForward(reader, 3)
 
 	// when
-	line, err := scanner.Line(100)
+	lines, err := forward.Lines(100)
 
 	// then
 	assert.NotNil(t, err)
-	assert.Equal(t, line, []string{"cdefg"})
-	assert.Equal(t, scanner.Position(), endPosition)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, endPosition)
-	assert.Equal(t, scanner.readerPos, endPosition)
-	assert.True(t, scanner.endOfFile)
-	assert.True(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{"cdefg"})
+	assert.Equal(t, forward.Position(), endPosition)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.True(t, forward.endOfFile)
+	assert.True(t, forward.endOfScan)
 }
 
-func TestLine_ExceedPosition(t *testing.T) {
+func TestLines_WithExceedPosition(t *testing.T) {
 	// given
 	reader := strings.NewReader("ab\ncdefg")
-	scanner := newForward(reader, 100)
+	forward := newForward(reader, 100)
 
 	// when
-	line, err := scanner.Line(100)
+	lines, err := forward.Lines(100)
 
 	// then
 	assert.Equal(t, err, io.EOF)
-	assert.Equal(t, line, []string{""})
-	assert.Equal(t, scanner.Position(), endPosition)
-	assert.Equal(t, scanner.Position(), scanner.readerLineStartPos)
-	assert.Equal(t, scanner.bufferLineStartPos, endPosition)
-	assert.Equal(t, scanner.readerPos, endPosition)
-	assert.True(t, scanner.endOfFile)
-	assert.True(t, scanner.endOfScan)
+	assert.Equal(t, lines, []string{""})
+	assert.Equal(t, forward.Position(), endPosition)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.True(t, forward.endOfFile)
+	assert.True(t, forward.endOfScan)
+}
+
+func TestLines_WithReaderLineStartPosition(t *testing.T) {
+	// given
+	reader := strings.NewReader("ab\ncdefg\nhijk")
+	forward := newForward(reader, 0)
+	forward.Lines(2)
+	forward = newForward(reader, forward.Position())
+
+	// then
+	lines, err := forward.Lines(100)
+
+	// then
+	assert.Equal(t, err, io.EOF)
+	assert.Equal(t, lines, []string{"hijk"})
+	assert.Equal(t, forward.Position(), endPosition)
+	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.True(t, forward.endOfFile)
+	assert.False(t, forward.endOfScan)
 }

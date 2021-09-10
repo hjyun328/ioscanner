@@ -29,7 +29,7 @@ const (
 )
 
 type LineScanner interface {
-	Line(count int) (lines []string, err error)
+	Lines(count int) (lines []string, err error)
 	Position() int
 }
 
@@ -38,6 +38,7 @@ func New(direction Direction, reader io.ReaderAt, position int) LineScanner {
 	case Forward:
 		return newForward(reader, position)
 	case Backward:
+		return newBackward(reader, position)
 	}
 	return nil
 }
@@ -47,6 +48,7 @@ func NewWithSize(direction Direction, reader io.ReaderAt, position int, chunkSiz
 	case Forward:
 		return newForwardWithSize(reader, position, chunkSize, bufferSize)
 	case Backward:
+		return newBackward(reader, position)
 	}
 	return nil
 }

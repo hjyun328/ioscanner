@@ -118,7 +118,7 @@ func (s *forward) read() error {
 	return nil
 }
 
-func (s *forward) Line(count int) (lines []string, err error) {
+func (s *forward) Lines(count int) (lines []string, err error) {
 	s.backupPosition()
 	if count <= 0 {
 		return lines, ErrInvalidLineCount
