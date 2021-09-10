@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ErrNilReader = errors.New("reader is nil")
+	ErrNilReader         = errors.New("reader is nil")
 	ErrInvalidPosition   = errors.New("invalid position")
 	ErrInvalidChunkSize  = errors.New("chunk size is invalid")
 	ErrInvalidBufferSize = errors.New("buffer size is invalid")
