@@ -7,12 +7,13 @@ import (
 )
 
 var (
-	ErrBufferOverflow    = errors.New("buffer is overflow")
-	ErrInvalidLineCount  = errors.New("line count is invalid")
+	ErrNilReader = errors.New("reader is nil")
+	ErrInvalidPosition   = errors.New("invalid position")
 	ErrInvalidChunkSize  = errors.New("chunk size is invalid")
 	ErrInvalidBufferSize = errors.New("buffer size is invalid")
 	ErrGreaterBufferSize = errors.New("buffer size must be greater than chunk size")
-	ErrInvalidPosition   = errors.New("invalid position")
+	ErrBufferOverflow    = errors.New("buffer is overflow")
+	ErrInvalidLineCount  = errors.New("line count is invalid")
 )
 
 const (
@@ -44,6 +45,9 @@ func New(reader io.ReaderAt, position int) *Scanner {
 }
 
 func NewWithSize(reader io.ReaderAt, position int, chunkSize int, bufferSize int) *Scanner {
+	if reader == nil {
+		panic(ErrNilReader)
+	}
 	if position < 0 {
 		panic(ErrInvalidPosition)
 	}
