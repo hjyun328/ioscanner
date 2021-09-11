@@ -100,12 +100,12 @@ func (b *backward) allocateBuffer() error {
 	return nil
 }
 
-func (b *backward) removeLineFromBuffer(lineStartPos int) string {
-	orgLine := b.buffer[lineStartPos+1:]
+func (b *backward) removeLineFromBuffer(lineFeedStartPos int) string {
+	orgLine := b.buffer[lineFeedStartPos+1:]
 	line := removeCarrageReturn(orgLine)
-	b.buffer = b.buffer[:maxInt(lineStartPos, 0)]
+	b.buffer = b.buffer[:maxInt(lineFeedStartPos, 0)]
 	b.readerLineEndPos -= len(orgLine)
-	if lineStartPos >= 0 {
+	if lineFeedStartPos >= 0 {
 		b.readerLineEndPos--
 	}
 	return line
@@ -136,9 +136,9 @@ func (b *backward) Line() (string, error) {
 	}
 	b.backupPosition()
 	for {
-		lineStartPos := bytes.LastIndexByte(b.buffer, '\n')
-		if lineStartPos >= 0 {
-			return b.removeLineFromBuffer(lineStartPos), nil
+		lineFeedStartPos := bytes.LastIndexByte(b.buffer, '\n')
+		if lineFeedStartPos >= 0 {
+			return b.removeLineFromBuffer(lineFeedStartPos), nil
 		} else {
 			if b.endOfFile() {
 				return b.removeLineFromBuffer(-1), io.EOF
