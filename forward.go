@@ -8,138 +8,166 @@ import (
 type forward struct {
 	reader io.ReaderAt
 
-	chunk  []byte
-	buffer []byte
+	maxChunkSize int
+	chunk        []byte
 
-	bufferLineStartPos int
+	maxBufferSize int
+	buffer        []byte
+
 	readerPos          int
 	readerLineStartPos int
+	bufferLineStartPos int
 
-	backupBufferLineStartPos int
 	backupReaderPos          int
 	backupReaderLineStartPos int
-
-	endOfFile bool
-	endOfScan bool
 }
 
 func newForward(reader io.ReaderAt, position int) *forward {
-	return newForwardWithSize(reader, position, defaultChunkSize, defaultBufferSize)
+	return newForwardWithSize(reader, position, defaultMaxChunkSize, defaultMaxBufferSize)
 }
 
-func newForwardWithSize(reader io.ReaderAt, position int, chunkSize int, bufferSize int) *forward {
+func newForwardWithSize(reader io.ReaderAt, position int, maxChunkSize int, maxBufferSize int) *forward {
 	if reader == nil {
 		panic(ErrNilReader)
 	}
-	if position < 0 {
-		panic(ErrInvalidPosition)
+	if maxChunkSize <= 0 {
+		panic(ErrInvalidMaxChunkSize)
 	}
-	if chunkSize <= 0 {
-		panic(ErrInvalidChunkSize)
+	if maxBufferSize <= 0 {
+		panic(ErrInvalidMaxBufferSize)
 	}
-	if bufferSize <= 0 {
-		panic(ErrInvalidBufferSize)
-	}
-	if chunkSize > bufferSize {
+	if maxChunkSize > maxBufferSize {
 		panic(ErrGreaterBufferSize)
 	}
 	return &forward{
 		reader:             reader,
-		chunk:              make([]byte, chunkSize),
-		buffer:             make([]byte, 0, bufferSize),
+		maxChunkSize:       maxChunkSize,
+		maxBufferSize:      maxBufferSize,
 		readerPos:          position,
 		readerLineStartPos: position,
 	}
 }
 
-func (s *forward) backupPosition() {
-	s.backupBufferLineStartPos = s.bufferLineStartPos
-	s.backupReaderPos = s.readerPos
-	s.backupReaderLineStartPos = s.readerLineStartPos
+func (f *forward) backupPosition() {
+	f.backupReaderPos = f.readerPos
+	f.backupReaderLineStartPos = f.readerLineStartPos
 }
 
-func (s *forward) recoverPosition() {
-	s.bufferLineStartPos = s.backupBufferLineStartPos
-	s.readerPos = s.backupReaderPos
-	s.readerLineStartPos = s.backupReaderLineStartPos
+func (f *forward) recoverPosition() {
+	f.readerPos = f.backupReaderPos
+	f.readerLineStartPos = f.backupReaderLineStartPos
 }
 
-func (s *forward) endPosition() {
-	s.bufferLineStartPos = endPosition
-	s.readerPos = endPosition
-	s.readerLineStartPos = endPosition
+func (f *forward) endOfFile() bool {
+	return f.readerPos < 0
 }
 
-func (s *forward) getLineSizeExcludingLineFeed() int {
-	lineSize := bytes.IndexByte(s.buffer[s.bufferLineStartPos:], '\n')
-	if lineSize < 0 && s.endOfFile {
-		s.endOfScan = true
-		return len(s.buffer[s.bufferLineStartPos:])
+func (f *forward) endOfScan() bool {
+	return f.endOfFile() && f.readerLineStartPos < 0
+}
+
+func (f *forward) endPosition() {
+	f.readerPos = endPosition
+	f.readerLineStartPos = endPosition
+	f.bufferLineStartPos = endPosition
+}
+
+func (f *forward) allocateChunk() error {
+	if f.endOfFile() {
+		return nil
 	}
-	return lineSize
-}
-
-func (s *forward) getLineExcludingCarrageReturn(lineSize int) string {
-	return removeCarrageReturn(s.buffer[s.bufferLineStartPos : s.bufferLineStartPos+lineSize])
-}
-
-func (s *forward) arrangeBuffer(n int) error {
-	lineSize := len(s.buffer[s.bufferLineStartPos:])
-	if lineSize+n > cap(s.buffer) {
-		return ErrBufferOverflow
+	if f.chunk == nil {
+		f.chunk = make([]byte, f.maxChunkSize)
+	} else {
+		f.chunk = f.chunk[:f.maxChunkSize]
 	}
-	if s.bufferLineStartPos+lineSize+n > cap(s.buffer) {
-		copy(s.buffer, s.buffer[s.bufferLineStartPos:])
-		s.buffer = s.buffer[:lineSize]
-		s.bufferLineStartPos = 0
-	}
-	return nil
-}
-
-func (s *forward) read() error {
-	n, err := s.reader.ReadAt(s.chunk, int64(s.readerPos))
-	if err != nil && err != io.EOF {
-		return err
-	}
-	if n > 0 {
-		if err := s.arrangeBuffer(n); err != nil {
+	n, err := f.reader.ReadAt(f.chunk, int64(f.readerPos))
+	if err != nil {
+		if err != io.EOF {
 			return err
 		}
-		s.buffer = append(s.buffer, s.chunk[:n]...)
-		s.readerPos += n
+		f.readerPos = endPosition
 	}
-	if err == io.EOF {
-		s.endOfFile = true
-		s.readerPos = -1
+	f.chunk = f.chunk[:n]
+	return nil
+}
+
+func (f *forward) allocateBuffer() error {
+	chunkSize := len(f.chunk)
+	if chunkSize <= 0 {
+		return nil
+	}
+	lineSize := len(f.buffer[f.bufferLineStartPos:])
+	if lineSize+chunkSize > f.maxBufferSize {
+		return ErrBufferOverflow
+	}
+	if lineSize+chunkSize > cap(f.buffer) {
+		expandedBuffer := make([]byte, 0, lineSize+chunkSize)
+		expandedBuffer = append(expandedBuffer, f.buffer[f.bufferLineStartPos:]...)
+		expandedBuffer = append(expandedBuffer, f.chunk...)
+		f.buffer = expandedBuffer
+	} else if f.bufferLineStartPos+lineSize+chunkSize > cap(f.buffer) {
+		copy(f.buffer, f.buffer[f.bufferLineStartPos:])
+		f.buffer = f.buffer[:lineSize]
+		f.bufferLineStartPos = 0
+	}
+	f.buffer = append(f.buffer, f.chunk...)
+	return nil
+}
+
+func (f *forward) arrangeBuffer(n int) error {
+	lineSize := len(f.buffer[f.bufferLineStartPos:])
+	if lineSize+n > cap(f.buffer) {
+		return ErrBufferOverflow
+	}
+	if f.bufferLineStartPos+lineSize+n > cap(f.buffer) {
+		copy(f.buffer, f.buffer[f.bufferLineStartPos:])
+		f.buffer = f.buffer[:lineSize]
+		f.bufferLineStartPos = 0
 	}
 	return nil
 }
 
-func (s *forward) Line() (string, error) {
-	if s.endOfScan {
+func (f *forward) removeLineFromBuffer(lineSize int) string {
+	line := removeCarrageReturn(f.buffer[f.bufferLineStartPos : f.bufferLineStartPos+lineSize])
+	f.readerLineStartPos += lineSize + 1
+	return line
+}
+
+func (f *forward) read() (err error) {
+	if err = f.allocateChunk(); err != nil {
+		return err
+	}
+	if err = f.allocateBuffer(); err != nil {
+		return err
+	}
+	f.readerPos += len(f.chunk)
+	return nil
+}
+
+func (f *forward) Line() (string, error) {
+	if f.endOfScan() {
 		return "", io.EOF
 	}
-	s.backupPosition()
+	f.backupPosition()
 	for {
-		lineSize := s.getLineSizeExcludingLineFeed()
-		if lineSize < 0 {
-			if err := s.read(); err != nil {
-				s.recoverPosition()
+		lineSize := bytes.LastIndexByte(f.buffer[f.bufferLineStartPos:], '\n')
+		if lineSize >= 0 {
+			return f.removeLineFromBuffer(lineSize), nil
+		} else {
+			if f.endOfFile() {
+				line, err := f.removeLineFromBuffer(lineSize), io.EOF
+				f.endPosition()
+				return line, err
+			}
+			if err := f.read(); err != nil {
+				f.recoverPosition()
 				return "", err
 			}
-			continue
 		}
-		line := s.getLineExcludingCarrageReturn(lineSize)
-		s.bufferLineStartPos += lineSize + 1
-		s.readerLineStartPos += lineSize + 1
-		if s.endOfScan {
-			s.endPosition()
-			return line, io.EOF
-		}
-		return line, nil
 	}
 }
 
-func (s *forward) Position() int {
-	return s.readerLineStartPos
+func (f *forward) Position() int {
+	return f.readerLineStartPos
 }

@@ -2,51 +2,68 @@ package linescanner
 
 import (
 	"github.com/stretchr/testify/assert"
-	"io"
 	"strings"
 	"testing"
 )
 
-func TestNewForward_InvalidPosition(t *testing.T) {
-	assert.PanicsWithValue(t, ErrInvalidPosition, func() {
-		newForward(strings.NewReader(""), -1)
-	})
+func TestForward_NewForward(t *testing.T) {
+	// given
+	reader := strings.NewReader("")
+	position := 100
+
+	// when
+	scanner := newForward(reader, position)
+
+	// then
+	assert.Equal(t, scanner.reader, reader)
+	assert.Equal(t, scanner.readerPos, position)
+	assert.Equal(t, scanner.readerLineStartPos, position)
+	assert.Equal(t, scanner.bufferLineStartPos, 0)
+	assert.Equal(t, scanner.maxChunkSize, defaultMaxChunkSize)
+	assert.Equal(t, scanner.maxBufferSize, defaultMaxBufferSize)
 }
 
-func TestNewForward_InvalidReader(t *testing.T) {
+func TestForward_NewForward_ErrNilReader(t *testing.T) {
 	assert.PanicsWithValue(t, ErrNilReader, func() {
-		newForward(nil, -1)
+		newBackward(nil, endPosition)
 	})
 }
 
-func TestNewForwardWithSize_InvalidChunkSize(t *testing.T) {
-	assert.PanicsWithValue(t, ErrInvalidChunkSize, func() {
-		newForwardWithSize(strings.NewReader(""), 0, -1, 100)
-	})
-	assert.PanicsWithValue(t, ErrInvalidChunkSize, func() {
-		newForwardWithSize(strings.NewReader(""), 0, 0, 100)
+func TestForward_NewForward_ErrInvalidMaxChunkSize(t *testing.T) {
+	assert.PanicsWithValue(t, ErrInvalidMaxChunkSize, func() {
+		newForwardWithSize(strings.NewReader(""), endPosition, 0, 100)
 	})
 }
 
-func TestNewForwardWithSize_InvalidBufferSize(t *testing.T) {
-	assert.PanicsWithValue(t, ErrInvalidBufferSize, func() {
-		newForwardWithSize(strings.NewReader(""), 0, 1, 0)
-	})
-	assert.PanicsWithValue(t, ErrInvalidBufferSize, func() {
-		newForwardWithSize(strings.NewReader(""), 0, 1, -1)
+func TestForward_NewForward_ErrInvalidMaxBufferSize(t *testing.T) {
+	assert.PanicsWithValue(t, ErrInvalidMaxBufferSize, func() {
+		newForwardWithSize(strings.NewReader(""), endPosition, 100, 0)
 	})
 }
 
-func TestNewForwardWithSize_GreaterBufferSize(t *testing.T) {
+func TestForward_NewForward_ErrGreaterBufferSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrGreaterBufferSize, func() {
-		newForwardWithSize(strings.NewReader(""), 0, 2, 1)
+		newForwardWithSize(strings.NewReader(""), endPosition, 100, 10)
 	})
 }
 
-func TestBackupPosition(t *testing.T) {
+func TestForward_BackupPosition(t *testing.T) {
 	// given
 	forward := newForward(strings.NewReader(""), 0)
-	forward.bufferLineStartPos = 1
+	forward.readerPos = 1
+	forward.readerLineStartPos = 2
+
+	// when
+	forward.backupPosition()
+
+	// then
+	assert.Equal(t, forward.readerPos, forward.backupReaderPos)
+	assert.Equal(t, forward.readerLineStartPos, forward.backupReaderLineStartPos)
+}
+
+func TestForward_RecoverPosition(t *testing.T) {
+	// given
+	forward := newForward(strings.NewReader(""), 0)
 	forward.readerPos = 2
 	forward.readerLineStartPos = 3
 
@@ -54,157 +71,68 @@ func TestBackupPosition(t *testing.T) {
 	forward.backupPosition()
 
 	// then
-	assert.Equal(t, forward.bufferLineStartPos, forward.backupBufferLineStartPos)
 	assert.Equal(t, forward.readerPos, forward.backupReaderPos)
 	assert.Equal(t, forward.readerLineStartPos, forward.backupReaderLineStartPos)
-}
 
-func TestRecoverPosition(t *testing.T) {
 	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.bufferLineStartPos = 1
-	forward.readerPos = 2
-	forward.readerLineStartPos = 3
-	forward.backupPosition()
-	forward.bufferLineStartPos = 4
-	forward.readerPos = 5
-	forward.readerLineStartPos = 6
+	forward.readerPos = 4
+	forward.readerLineStartPos = 5
 
 	// when
 	forward.recoverPosition()
 
 	// then
-	assert.Equal(t, forward.bufferLineStartPos, 1)
-	assert.Equal(t, forward.readerPos, 2)
-	assert.Equal(t, forward.readerLineStartPos, 3)
+	assert.Equal(t, forward.readerPos, forward.backupReaderPos)
+	assert.Equal(t, forward.readerLineStartPos, forward.backupReaderLineStartPos)
 }
 
-func TestEndPosition(t *testing.T) {
+func TestForward_EndOfFile_False(t *testing.T) {
 	// given
 	forward := newForward(strings.NewReader(""), 0)
-	forward.bufferLineStartPos = 1
-	forward.readerPos = 2
-	forward.readerLineStartPos = 3
 
 	// when
-	forward.endPosition()
+	forward.readerPos = 0
 
 	// then
-	assert.Equal(t, forward.bufferLineStartPos, endPosition)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.Equal(t, forward.readerLineStartPos, endPosition)
+	assert.False(t, forward.endOfFile())
 }
 
-func TestGetLineSizeExcludingLineFeed(t *testing.T) {
+func TestForward_EndOfFile_True(t *testing.T) {
 	// given
 	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, "abcdefg\n"...)
 
 	// when
-	lineSize := forward.getLineSizeExcludingLineFeed()
+	forward.readerPos = endPosition
 
 	// then
-	assert.Equal(t, lineSize, 7)
+	assert.True(t, forward.endOfFile())
 }
 
-func TestGetLineSizeExcludingLineFeed_OnlyLinesFeed(t *testing.T) {
+func TestForward_EndOfScan_False(t *testing.T) {
 	// given
 	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, "\n"...)
 
 	// when
-	lineSize := forward.getLineSizeExcludingLineFeed()
+	forward.readerPos = -1
+	forward.readerLineStartPos = 0
 
 	// then
-	assert.Equal(t, lineSize, 0)
+	assert.False(t, forward.endOfScan())
 }
 
-func TestGetLineSizeExcludingLineFeed_WithCarrageReturn(t *testing.T) {
+func TestForward_EndOfScan_True(t *testing.T) {
 	// given
 	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, "abcdefg\r\n"...)
 
 	// when
-	lineSize := forward.getLineSizeExcludingLineFeed()
+	forward.readerPos = endPosition
+	forward.readerLineStartPos = endPosition
 
 	// then
-	assert.Equal(t, lineSize, 8)
+	assert.True(t, forward.endOfScan())
 }
 
-func TestGetLineSizeExcludingLineFeed_WithoutLinesFeed(t *testing.T) {
-	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, "abcdefg"...)
-
-	// when
-	lineSize := forward.getLineSizeExcludingLineFeed()
-
-	// then
-	assert.Equal(t, lineSize, -1)
-}
-
-func TestGetLineSizeExcludingLineFeed_Empty(t *testing.T) {
-	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, ""...)
-
-	// when
-	lineSize := forward.getLineSizeExcludingLineFeed()
-
-	// then
-	assert.Equal(t, lineSize, -1)
-}
-
-func TestGetLineSizeExcludingLineFeed_EndOfFile(t *testing.T) {
-	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, "abcdefg"...)
-	forward.endOfFile = true
-
-	// when
-	lineSize := forward.getLineSizeExcludingLineFeed()
-
-	// then
-	assert.Equal(t, lineSize, 7)
-	assert.True(t, forward.endOfScan)
-}
-
-func TestGetLineExcludingCarrageReturn(t *testing.T) {
-	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, "abcdefg\r"...)
-
-	// when
-	Lines := forward.getLineExcludingCarrageReturn(8)
-
-	// then
-	assert.Equal(t, Lines, "abcdefg")
-}
-
-func TestGetLineExcludingCarrageReturn_WithoutCarrageReturn(t *testing.T) {
-	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, "abcdefg"...)
-
-	// when
-	Lines := forward.getLineExcludingCarrageReturn(7)
-
-	// then
-	assert.Equal(t, Lines, "abcdefg")
-}
-
-func TestGetLineExcludingCarrageReturn_Empty(t *testing.T) {
-	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.buffer = append(forward.buffer, ""...)
-
-	// when
-	Lines := forward.getLineExcludingCarrageReturn(0)
-
-	// then
-	assert.Equal(t, Lines, "")
-}
-
+/*
 func TestArrangeBuffer(t *testing.T) {
 	// given
 	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
@@ -597,3 +525,4 @@ func TestLine_WithReaderLineStartPosition(t *testing.T) {
 	assert.True(t, forward.endOfFile)
 	assert.False(t, forward.endOfScan)
 }
+*/
