@@ -6,18 +6,19 @@ import (
 )
 
 var (
-	ErrNilReader         = errors.New("reader is nil")
-	ErrInvalidPosition   = errors.New("invalid position")
-	ErrInvalidChunkSize  = errors.New("chunk size is invalid")
-	ErrInvalidBufferSize = errors.New("buffer size is invalid")
-	ErrGreaterBufferSize = errors.New("buffer size must be greater than chunk size")
-	ErrBufferOverflow    = errors.New("buffer is overflow")
+	ErrReadFailure          = errors.New("read failure")
+	ErrNilReader            = errors.New("reader is nil")
+	ErrInvalidPosition      = errors.New("invalid position")
+	ErrInvalidMaxChunkSize  = errors.New("max chunk size is invalid")
+	ErrInvalidMaxBufferSize = errors.New("max buffer size is invalid")
+	ErrGreaterBufferSize    = errors.New("buffer size must be greater than chunk size")
+	ErrBufferOverflow       = errors.New("buffer is overflow")
 )
 
 const (
-	defaultChunkSize  = 4096
-	defaultBufferSize = 1 << 20
-	endPosition       = -1
+	defaultMaxChunkSize  = 4096
+	defaultMaxBufferSize = 1 << 20
+	endPosition          = -1
 )
 
 type Direction int
