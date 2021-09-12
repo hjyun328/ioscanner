@@ -25,14 +25,14 @@ func TestBackward_NewBackward(t *testing.T) {
 	position := 100
 
 	// when
-	scanner := newBackward(reader, position)
+	backward := newBackward(reader, position)
 
 	// then
-	assert.Equal(t, scanner.reader, reader)
-	assert.Equal(t, scanner.readerPos, position)
-	assert.Equal(t, scanner.readerLineEndPos, position)
-	assert.Equal(t, scanner.maxChunkSize, defaultChunkSize)
-	assert.Equal(t, scanner.maxBufferSize, defaultBufferSize)
+	assert.Equal(t, backward.reader, reader)
+	assert.Equal(t, backward.readerPos, position)
+	assert.Equal(t, backward.readerLineEndPos, position)
+	assert.Equal(t, backward.maxChunkSize, defaultMaxChunkSize)
+	assert.Equal(t, backward.maxBufferSize, defaultMaxBufferSize)
 }
 
 func TestBackward_NewBackward_ErrNilReader(t *testing.T) {
@@ -42,18 +42,18 @@ func TestBackward_NewBackward_ErrNilReader(t *testing.T) {
 }
 
 func TestBackward_NewBackward_ErrInvalidMaxChunkSize(t *testing.T) {
-	assert.PanicsWithValue(t, ErrInvalidChunkSize, func() {
+	assert.PanicsWithValue(t, ErrInvalidMaxChunkSize, func() {
 		newBackwardWithSize(strings.NewReader(""), endPosition, 0, 100)
 	})
 }
 
 func TestBackward_NewBackward_ErrInvalidMaxBufferSize(t *testing.T) {
-	assert.PanicsWithValue(t, ErrInvalidBufferSize, func() {
+	assert.PanicsWithValue(t, ErrInvalidMaxBufferSize, func() {
 		newBackwardWithSize(strings.NewReader(""), endPosition, 100, 0)
 	})
 }
 
-func TestBackward_NewBackward_ErrGreatorBufferSize(t *testing.T) {
+func TestBackward_NewBackward_ErrGreaterBufferSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrGreaterBufferSize, func() {
 		newBackwardWithSize(strings.NewReader(""), endPosition, 100, 10)
 	})
@@ -67,176 +67,244 @@ func TestBackward_NewBackwardWithSize(t *testing.T) {
 	maxBufferSize := 4096
 
 	// when
-	scanner := newBackwardWithSize(reader, position, maxChunkSize, maxBufferSize)
+	backward := newBackwardWithSize(reader, position, maxChunkSize, maxBufferSize)
 
 	// then
-	assert.Equal(t, scanner.reader, reader)
-	assert.Equal(t, scanner.readerPos, position)
-	assert.Equal(t, scanner.readerLineEndPos, position)
-	assert.Equal(t, scanner.maxChunkSize, maxChunkSize)
-	assert.Equal(t, scanner.maxBufferSize, maxBufferSize)
+	assert.Equal(t, backward.reader, reader)
+	assert.Equal(t, backward.readerPos, position)
+	assert.Equal(t, backward.readerLineEndPos, position)
+	assert.Equal(t, backward.maxChunkSize, maxChunkSize)
+	assert.Equal(t, backward.maxBufferSize, maxBufferSize)
 }
 
-func TestBackward_BackupPostiion(t *testing.T) {
+func TestBackward_BackupPosition(t *testing.T) {
 	// given
-	scanner := newBackward(strings.NewReader(""), 0)
-	scanner.readerPos = 1
-	scanner.readerLineEndPos = 2
+	backward := newBackward(strings.NewReader(""), 0)
+	backward.readerPos = 1
+	backward.readerLineEndPos = 2
 
 	// when
-	scanner.backupPosition()
+	backward.backupPosition()
 
 	// then
-	assert.Equal(t, scanner.readerPos, scanner.backupReaderPos)
+	assert.Equal(t, backward.readerPos, backward.backupReaderPos)
 }
 
 func TestBackward_RecoverPosition(t *testing.T) {
 	// given
-	scanner := newBackward(strings.NewReader(""), 0)
-	scanner.readerPos = 1
+	backward := newBackward(strings.NewReader(""), 0)
+	backward.readerPos = 1
 
 	// when
-	scanner.backupPosition()
+	backward.backupPosition()
 
 	// then
-	assert.Equal(t, scanner.readerPos, scanner.backupReaderPos)
+	assert.Equal(t, backward.readerPos, backward.backupReaderPos)
 
 	// given
-	scanner.readerPos = 10
+	backward.readerPos = 10
 
 	// when
-	scanner.recoverPosition()
+	backward.recoverPosition()
 
 	// then
-	assert.Equal(t, scanner.readerPos, 1)
+	assert.Equal(t, backward.readerPos, 1)
 }
 
 func TestBackward_EndOfFile_False(t *testing.T) {
 	// given
-	scanner := newBackward(strings.NewReader(""), 0)
+	backward := newBackward(strings.NewReader(""), 0)
 
 	// when
-	scanner.readerPos = 1
+	backward.readerPos = 1
 
 	// then
-	assert.False(t, scanner.endOfFile())
+	assert.False(t, backward.endOfFile())
 }
 
 func TestBackward_EndOfFile_True(t *testing.T) {
 	// given
-	scanner := newBackward(strings.NewReader(""), 0)
+	backward := newBackward(strings.NewReader(""), 0)
 
 	// when
-	scanner.readerPos = -1
+	backward.readerPos = -1
 
 	// then
-	assert.True(t, scanner.endOfFile())
+	assert.True(t, backward.endOfFile())
 
 	// when
-	scanner.readerPos = 0
+	backward.readerPos = 0
 
 	// then
-	assert.True(t, scanner.endOfFile())
+	assert.True(t, backward.endOfFile())
 }
 
 func TestBackward_EndOfScan_False(t *testing.T) {
 	// given
-	scanner := newBackward(strings.NewReader(""), 0)
+	backward := newBackward(strings.NewReader(""), 0)
 
 	// when
-	scanner.readerPos = -1
-	scanner.readerLineEndPos = 1
+	backward.readerPos = -1
+	backward.readerLineEndPos = 1
 
 	// then
-	assert.False(t, scanner.endOfScan())
+	assert.False(t, backward.endOfScan())
 }
 
 func TestBackward_EndOfScan_True(t *testing.T) {
 	// given
-	scanner := newBackward(strings.NewReader(""), 0)
+	backward := newBackward(strings.NewReader(""), 0)
 
 	// when
-	scanner.readerPos = -1
-	scanner.readerLineEndPos = -1
+	backward.readerPos = -1
+	backward.readerLineEndPos = -1
 
 	// then
-	assert.True(t, scanner.endOfScan())
+	assert.True(t, backward.endOfScan())
 }
 
-func TestBackward_AllocateChunk_GreatorThanReaderPosWhenFirstAllocated(t *testing.T) {
+func TestBackward_AllocateChunk(t *testing.T) {
 	// given
-	scanner := newBackwardWithSize(strings.NewReader(""), 0, 4, 4)
-	scanner.readerPos = 2
+	backward := newBackwardWithSize(strings.NewReader("abcdefgh"), 8, 4, 4)
 
 	// when
-	scanner.allocateChunk()
+	err := backward.allocateChunk()
 
 	// then
-	assert.Equal(t, len(scanner.chunk), scanner.readerPos)
-	assert.Equal(t, cap(scanner.chunk), scanner.readerPos)
+	assert.Nil(t, err)
+	assert.Equal(t, backward.chunk, []byte("efgh"))
+	assert.Equal(t, cap(backward.chunk), 4)
 }
 
-func TestBackward_AllocateChunk_GreatorThanReaderPosWhenAlreadyAllocated(t *testing.T) {
+func TestBackward_AllocateChunk_GreaterThanReaderPosWhenFirstAllocated(t *testing.T) {
 	// given
-	scanner := newBackwardWithSize(strings.NewReader(""), 0, 4, 4)
-	scanner.readerPos = 6
+	backward := newBackwardWithSize(strings.NewReader("abcd"), 4, 4, 4)
+	backward.readerPos = 2
 
 	// when
-	scanner.allocateChunk()
+	err := backward.allocateChunk()
 
 	// then
-	assert.Equal(t, len(scanner.chunk), scanner.maxChunkSize)
-	assert.Equal(t, cap(scanner.chunk), scanner.maxChunkSize)
+	assert.Nil(t, err)
+	assert.Equal(t, len(backward.chunk), backward.readerPos)
+	assert.Equal(t, cap(backward.chunk), backward.readerPos)
+}
 
+func TestBackward_AllocateChunk_GreaterThanReaderPosWhenAlreadyAllocated(t *testing.T) {
 	// given
-	scanner.readerPos = 2
+	backward := newBackwardWithSize(strings.NewReader("abcdef"), 6, 4, 4)
 
 	// when
-	scanner.allocateChunk()
+	err := backward.allocateChunk()
 
 	// then
-	assert.Equal(t, len(scanner.chunk), scanner.readerPos)
-	assert.Equal(t, cap(scanner.chunk), scanner.maxChunkSize)
+	assert.Nil(t, err)
+	assert.Equal(t, len(backward.chunk), backward.maxChunkSize)
+	assert.Equal(t, cap(backward.chunk), backward.maxChunkSize)
+
+	// given
+	backward.readerPos = 2
+
+	// when
+	err = backward.allocateChunk()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, len(backward.chunk), backward.readerPos)
+	assert.Equal(t, cap(backward.chunk), backward.maxChunkSize)
+}
+
+func TestBackward_AllocateChunk_WithPosition(t *testing.T) {
+	// given
+	data := "abcd\nefgh\nijkl"
+	backward := newBackwardWithSize(strings.NewReader(data), len(data)-2, 4, 14)
+
+	// when
+	err := backward.allocateChunk()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, backward.chunk, []byte("h\nij"))
+}
+
+func TestBackward_AllocateChunk_InvalidPosition(t *testing.T) {
+	// given
+	data := "abcd\nefgh\nijkl"
+	backward := newBackwardWithSize(strings.NewReader(data), len(data)+1, 4, 14)
+
+	// when
+	err := backward.allocateChunk()
+
+	// then
+	assert.Equal(t, err, ErrInvalidPosition)
+	assert.Equal(t, backward.chunk, append([]byte("jkl"), 0x00))
+}
+
+func TestBackward_AllocateChunk_ReadError(t *testing.T) {
+	// given
+	readErr := errors.New("")
+	reader := new(ReaderMock)
+	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
+	backward := newBackward(reader, 10)
+
+	// when
+	err := backward.allocateChunk()
+
+	// then
+	assert.Equal(t, err, readErr)
+}
+
+func TestBackward_AllocateChunk_ReadFailure(t *testing.T) {
+	// given
+	reader := new(ReaderMock)
+	reader.On("ReadAt", mock.Anything, mock.Anything).Return(10, nil)
+	backward := newBackward(reader, 20)
+
+	// when
+	err := backward.allocateChunk()
+
+	// then
+	assert.Equal(t, err, ErrReadFailure)
 }
 
 func TestBackward_AllocateChunk_LessThanReaderPos(t *testing.T) {
 	// given
-	scanner := newBackwardWithSize(strings.NewReader(""), 0, 4, 4)
-	scanner.readerPos = 6
+	backward := newBackwardWithSize(strings.NewReader("abcdef"), 6, 4, 4)
 
 	// when
-	scanner.allocateChunk()
+	err := backward.allocateChunk()
 
 	// then
-	assert.Equal(t, len(scanner.chunk), scanner.maxChunkSize)
-	assert.Equal(t, cap(scanner.chunk), scanner.maxChunkSize)
+	assert.Nil(t, err)
+	assert.Equal(t, len(backward.chunk), backward.maxChunkSize)
+	assert.Equal(t, cap(backward.chunk), backward.maxChunkSize)
 }
 
 func TestBackward_AllocateBuffer_FirstAllocation(t *testing.T) {
 	// given
 	chunk := []byte("abcd")
-	scanner := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), len(chunk))
-	scanner.chunk = chunk
+	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), len(chunk))
+	backward.chunk = chunk
 
 	// when
-	err := scanner.allocateBuffer()
+	err := backward.allocateBuffer()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.buffer, scanner.chunk)
-	assert.Equal(t, cap(scanner.buffer), len(scanner.chunk))
+	assert.Equal(t, backward.buffer, backward.chunk)
+	assert.Equal(t, cap(backward.buffer), len(backward.chunk))
 }
 
 func TestBackward_AllocateBuffer_BufferOverflow(t *testing.T) {
 	// given
 	chunk := []byte("abcd")
 	buffer := make([]byte, 1, len(chunk))
-	scanner := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
-	scanner.chunk = chunk
-	scanner.buffer = buffer
+	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	backward.chunk = chunk
+	backward.buffer = buffer
 
 	// when
-	err := scanner.allocateBuffer()
+	err := backward.allocateBuffer()
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
@@ -247,17 +315,17 @@ func TestBackward_AllocateBuffer_BufferExpanded(t *testing.T) {
 	chunk := []byte("abcd")
 	buffer := make([]byte, 1, len(chunk)+1)
 	buffer[0] = 'e'
-	scanner := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
-	scanner.chunk = chunk
-	scanner.buffer = buffer
+	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	backward.chunk = chunk
+	backward.buffer = buffer
 
 	// when
-	err := scanner.allocateBuffer()
+	err := backward.allocateBuffer()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.buffer, []byte("abcde"))
-	assert.Equal(t, cap(scanner.buffer), len(scanner.buffer))
+	assert.Equal(t, backward.buffer, []byte("abcde"))
+	assert.Equal(t, cap(backward.buffer), len(backward.buffer))
 }
 
 func TestBackward_AllocateBuffer_BufferReused(t *testing.T) {
@@ -265,271 +333,227 @@ func TestBackward_AllocateBuffer_BufferReused(t *testing.T) {
 	chunk := []byte("abcd")
 	buffer := make([]byte, 1, 10)
 	buffer[0] = 'e'
-	scanner := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
-	scanner.chunk = chunk
-	scanner.buffer = buffer
+	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	backward.chunk = chunk
+	backward.buffer = buffer
 
 	// when
-	err := scanner.allocateBuffer()
+	err := backward.allocateBuffer()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.buffer, []byte("abcde"))
-	assert.Equal(t, cap(scanner.buffer), 10)
+	assert.Equal(t, backward.buffer, []byte("abcde"))
+	assert.Equal(t, cap(backward.buffer), 10)
 }
 
 func TestBackward_RemoveLineFromBuffer(t *testing.T) {
 	// given
-	scanner := newBackwardWithSize(strings.NewReader(""), 16, 4, 8)
-	scanner.buffer = []byte("a\r\ndefg\r")
+	backward := newBackwardWithSize(strings.NewReader(""), 16, 4, 8)
+	backward.buffer = []byte("a\r\ndefg\r")
 
 	// when
-	line := scanner.removeLineFromBuffer(2)
+	line := backward.removeLineFromBuffer(2)
 
 	// then
 	assert.Equal(t, line, "defg")
-	assert.Equal(t, len(scanner.buffer), 2)
-	assert.Equal(t, cap(scanner.buffer), 8)
-	assert.Equal(t, scanner.readerLineEndPos, 16-(len(line) /* line feed */ +1 /* carrage return */ +1))
+	assert.Equal(t, len(backward.buffer), 2)
+	assert.Equal(t, cap(backward.buffer), 8)
+	assert.Equal(t, backward.readerLineEndPos, 16-(len(line) /* line feed */ +1 /* carrage return */ +1))
 }
 
 func TestBackward_Read(t *testing.T) {
 	// given
 	data := "abcd\nefgh\nijkl"
-	scanner := newBackwardWithSize(strings.NewReader(data), len(data), 4, 14)
+	backward := newBackwardWithSize(strings.NewReader(data), len(data), 4, 14)
 
 	// when
-	err := scanner.read()
+	err := backward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, []byte("ijkl"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("ijkl"))
-	assert.Equal(t, cap(scanner.buffer), 4)
-	assert.Equal(t, scanner.readerPos, 10)
-	assert.False(t, scanner.endOfFile())
+	assert.Equal(t, backward.chunk, []byte("ijkl"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte("ijkl"))
+	assert.Equal(t, cap(backward.buffer), 4)
+	assert.Equal(t, backward.readerPos, 10)
+	assert.False(t, backward.endOfFile())
 
 	// when
-	err = scanner.read()
+	err = backward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, []byte("fgh\n"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("fgh\nijkl"))
-	assert.Equal(t, cap(scanner.buffer), 8)
-	assert.Equal(t, scanner.readerPos, 6)
-	assert.False(t, scanner.endOfFile())
+	assert.Equal(t, backward.chunk, []byte("fgh\n"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte("fgh\nijkl"))
+	assert.Equal(t, cap(backward.buffer), 8)
+	assert.Equal(t, backward.readerPos, 6)
+	assert.False(t, backward.endOfFile())
 
 	// when
-	err = scanner.read()
+	err = backward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, []byte("cd\ne"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("cd\nefgh\nijkl"))
-	assert.Equal(t, cap(scanner.buffer), 12)
-	assert.Equal(t, scanner.readerPos, 2)
-	assert.False(t, scanner.endOfFile())
+	assert.Equal(t, backward.chunk, []byte("cd\ne"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte("cd\nefgh\nijkl"))
+	assert.Equal(t, cap(backward.buffer), 12)
+	assert.Equal(t, backward.readerPos, 2)
+	assert.False(t, backward.endOfFile())
 
 	// when
-	err = scanner.read()
+	err = backward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, []byte("ab"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("abcd\nefgh\nijkl"))
-	assert.Equal(t, cap(scanner.buffer), 14)
-	assert.Equal(t, scanner.readerPos, 0)
-	assert.True(t, scanner.endOfFile())
+	assert.Equal(t, backward.chunk, []byte("ab"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte("abcd\nefgh\nijkl"))
+	assert.Equal(t, cap(backward.buffer), 14)
+	assert.Equal(t, backward.readerPos, 0)
+	assert.True(t, backward.endOfFile())
 }
 
-func TestBackward_Read_WithPosition(t *testing.T) {
-	// given
-	data := "abcd\nefgh\nijkl"
-	scanner := newBackwardWithSize(strings.NewReader(data), len(data)-2, 4, 14)
-
-	// when
-	err := scanner.read()
-
-	// then
-	assert.Nil(t, err)
-	assert.Equal(t, scanner.chunk, []byte("h\nij"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("h\nij"))
-	assert.Equal(t, cap(scanner.buffer), 4)
-	assert.Equal(t, scanner.readerPos, 8)
-	assert.False(t, scanner.endOfFile())
-}
-
-func TestBackward_Read_InvalidPosition(t *testing.T) {
-	// given
-	data := "abcd\nefgh\nijkl"
-	scanner := newBackwardWithSize(strings.NewReader(data), len(data)+1, 4, 14)
-
-	// when
-	err := scanner.read()
-
-	// then
-	assert.Equal(t, err, ErrInvalidReaderPosition)
-}
-
-func TestBackward_Read_ReadFailure(t *testing.T) {
+func TestBackward_Read_AllocateChunkError(t *testing.T) {
 	// given
 	readErr := errors.New("")
 	reader := new(ReaderMock)
 	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
-	scanner := newBackward(reader, 10)
+	backward := newBackward(reader, 10)
 
 	// when
-	err := scanner.read()
+	err := backward.read()
 
 	// then
 	assert.Equal(t, err, readErr)
+	assert.Equal(t, backward.readerPos, 10)
 }
 
-func TestBackward_Read_ReadFailureChunkSize(t *testing.T) {
-	// given
-	position := 20
-	readSize := 10
-	reader := new(ReaderMock)
-	reader.On("ReadAt", mock.Anything, mock.Anything).Return(readSize, nil)
-	scanner := newBackward(reader, position)
-
-	// when
-	err := scanner.read()
-
-	// then
-	assert.Equal(t, err, ErrReadFailureChunkSize)
-	assert.Equal(t, scanner.readerPos, position)
-}
-
-func TestBackward_Read_BufferOverflow(t *testing.T) {
+func TestBackward_Read_AllocateBufferError(t *testing.T) {
 	// given
 	chunk := []byte("abcd")
 	buffer := make([]byte, 1, len(chunk))
-	scanner := newBackwardWithSize(strings.NewReader("abcd"), 4, len(chunk), cap(buffer))
-	scanner.chunk = chunk
-	scanner.buffer = buffer
+	backward := newBackwardWithSize(strings.NewReader("abcd"), 4, len(chunk), cap(buffer))
+	backward.chunk = chunk
+	backward.buffer = buffer
 
 	// when
-	err := scanner.read()
+	err := backward.read()
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
+	assert.Equal(t, backward.readerPos, 4)
 }
 
 func TestBackward_Line(t *testing.T) {
 	// given
 	data := "a\nb\r\ncdef\nghij"
-	scanner := newBackwardWithSize(strings.NewReader(data), len(data), 4, 8)
+	backward := newBackwardWithSize(strings.NewReader(data), len(data), 4, 8)
 
 	// when
-	line, err := scanner.Line()
+	line, err := backward.Line()
 
 	// then
 	assert.Nil(t, err)
 	assert.Equal(t, line, "ghij")
-	assert.Equal(t, scanner.chunk, []byte("def\n"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("def"))
-	assert.Equal(t, cap(scanner.buffer), 8)
-	assert.Equal(t, scanner.readerPos, 6)
-	assert.Equal(t, scanner.readerLineEndPos, 9)
-	assert.False(t, scanner.endOfFile())
-	assert.False(t, scanner.endOfScan())
+	assert.Equal(t, backward.chunk, []byte("def\n"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte("def"))
+	assert.Equal(t, cap(backward.buffer), 8)
+	assert.Equal(t, backward.readerPos, 6)
+	assert.Equal(t, backward.readerLineEndPos, 9)
+	assert.False(t, backward.endOfFile())
+	assert.False(t, backward.endOfScan())
 
 	// when
-	line, err = scanner.Line()
+	line, err = backward.Line()
 
 	// then
 	assert.Nil(t, err)
 	assert.Equal(t, line, "cdef")
-	assert.Equal(t, scanner.chunk, []byte("b\r\nc"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("b\r"))
-	assert.Equal(t, cap(scanner.buffer), 8)
-	assert.Equal(t, scanner.readerPos, 2)
-	assert.Equal(t, scanner.readerLineEndPos, 4)
-	assert.False(t, scanner.endOfFile())
-	assert.False(t, scanner.endOfScan())
+	assert.Equal(t, backward.chunk, []byte("b\r\nc"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte("b\r"))
+	assert.Equal(t, cap(backward.buffer), 8)
+	assert.Equal(t, backward.readerPos, 2)
+	assert.Equal(t, backward.readerLineEndPos, 4)
+	assert.False(t, backward.endOfFile())
+	assert.False(t, backward.endOfScan())
 
 	// when
-	line, err = scanner.Line()
+	line, err = backward.Line()
 
 	// then
 	assert.Nil(t, err)
 	assert.Equal(t, line, "b")
-	assert.Equal(t, scanner.chunk, []byte("a\n"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("a"))
-	assert.Equal(t, cap(scanner.buffer), 8)
-	assert.Equal(t, scanner.readerPos, 0)
-	assert.Equal(t, scanner.readerLineEndPos, 1)
-	assert.True(t, scanner.endOfFile())
-	assert.False(t, scanner.endOfScan())
+	assert.Equal(t, backward.chunk, []byte("a\n"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte("a"))
+	assert.Equal(t, cap(backward.buffer), 8)
+	assert.Equal(t, backward.readerPos, 0)
+	assert.Equal(t, backward.readerLineEndPos, 1)
+	assert.True(t, backward.endOfFile())
+	assert.False(t, backward.endOfScan())
 
 	// when
-	line, err = scanner.Line()
+	line, err = backward.Line()
 
 	// then
 	assert.Equal(t, err, io.EOF)
 	assert.Equal(t, line, "a")
-	assert.Equal(t, scanner.chunk, []byte("a\n"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Empty(t, scanner.buffer)
-	assert.Equal(t, cap(scanner.buffer), 8)
-	assert.Equal(t, scanner.readerPos, 0)
-	assert.Equal(t, scanner.readerLineEndPos, 0)
-	assert.True(t, scanner.endOfFile())
-	assert.True(t, scanner.endOfScan())
+	assert.Equal(t, backward.chunk, []byte("a\n"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Empty(t, backward.buffer)
+	assert.Equal(t, cap(backward.buffer), 8)
+	assert.Equal(t, backward.readerPos, 0)
+	assert.Equal(t, backward.readerLineEndPos, 0)
+	assert.True(t, backward.endOfFile())
+	assert.True(t, backward.endOfScan())
 }
 
 func TestBackward_Line_Error(t *testing.T) {
 	// given
 	data := "abcdefgh\nhij"
-	scanner := newBackwardWithSize(strings.NewReader(data), len(data), 4, 5)
+	backward := newBackwardWithSize(strings.NewReader(data), len(data), 4, 5)
 
 	// when
-	line, err := scanner.Line()
+	line, err := backward.Line()
 
 	// then
 	assert.Nil(t, err)
 	assert.Equal(t, line, "hij")
-	assert.Equal(t, scanner.chunk, []byte("\nhij"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte(""))
-	assert.Equal(t, cap(scanner.buffer), 4)
-	assert.Equal(t, scanner.readerPos, len(data)-scanner.maxChunkSize)
-	assert.Equal(t, scanner.readerLineEndPos, len(data)-scanner.maxChunkSize)
-	assert.False(t, scanner.endOfFile())
-	assert.False(t, scanner.endOfScan())
+	assert.Equal(t, backward.chunk, []byte("\nhij"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte(""))
+	assert.Equal(t, cap(backward.buffer), 4)
+	assert.Equal(t, backward.readerPos, len(data)-backward.maxChunkSize)
+	assert.Equal(t, backward.readerLineEndPos, len(data)-backward.maxChunkSize)
+	assert.False(t, backward.endOfFile())
+	assert.False(t, backward.endOfScan())
 
 	// when
-	line, err = scanner.Line()
+	line, err = backward.Line()
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
 	assert.Equal(t, line, "")
-	assert.Equal(t, scanner.chunk, []byte("abcd"))
-	assert.Equal(t, cap(scanner.chunk), 4)
-	assert.Equal(t, scanner.buffer, []byte("efgh"))
-	assert.Equal(t, cap(scanner.buffer), 4)
-	assert.Equal(t, scanner.readerPos, len(data)-scanner.maxChunkSize)
-	assert.Equal(t, scanner.readerLineEndPos, len(data)-scanner.maxChunkSize)
-	assert.False(t, scanner.endOfFile())
-	assert.False(t, scanner.endOfScan())
+	assert.Equal(t, backward.chunk, []byte("abcd"))
+	assert.Equal(t, cap(backward.chunk), 4)
+	assert.Equal(t, backward.buffer, []byte("efgh"))
+	assert.Equal(t, cap(backward.buffer), 4)
+	assert.Equal(t, backward.readerPos, len(data)-backward.maxChunkSize)
+	assert.Equal(t, backward.readerLineEndPos, len(data)-backward.maxChunkSize)
+	assert.False(t, backward.endOfFile())
+	assert.False(t, backward.endOfScan())
 }
 
 func TestBackward_Line_AlreadyEndOfScan(t *testing.T) {
 	// given
-	scanner := newBackward(strings.NewReader(""), endPosition)
+	backward := newBackward(strings.NewReader(""), endPosition)
 
 	// when
-	line, err := scanner.Line()
+	line, err := backward.Line()
 
 	// then
 	assert.Equal(t, err, io.EOF)
@@ -539,31 +563,31 @@ func TestBackward_Line_AlreadyEndOfScan(t *testing.T) {
 func TestBackward_Line_LineFeedOnly(t *testing.T) {
 	// given
 	data := "\n\r\n\n"
-	scanner := newBackward(strings.NewReader(data), len(data))
+	backward := newBackward(strings.NewReader(data), len(data))
 
 	// when
-	line, err := scanner.Line()
+	line, err := backward.Line()
 
 	// then
 	assert.Nil(t, err)
 	assert.Empty(t, line)
 
 	// when
-	line, err = scanner.Line()
+	line, err = backward.Line()
 
 	// then
 	assert.Nil(t, err)
 	assert.Empty(t, line)
 
 	// when
-	line, err = scanner.Line()
+	line, err = backward.Line()
 
 	// then
 	assert.Nil(t, err)
 	assert.Empty(t, line)
 
 	// when
-	line, err = scanner.Line()
+	line, err = backward.Line()
 
 	// then
 	assert.Equal(t, err, io.EOF)
@@ -573,23 +597,23 @@ func TestBackward_Line_LineFeedOnly(t *testing.T) {
 func TestBackward_Position(t *testing.T) {
 	// given
 	data := "abcdefgh\r\nhij"
-	scanner := newBackward(strings.NewReader(data), len(data))
+	backward := newBackward(strings.NewReader(data), len(data))
 
 	// when
-	line, err := scanner.Line()
+	line, err := backward.Line()
 
 	// then
 	assert.Nil(t, err, nil)
 	assert.Equal(t, line, "hij")
 
 	// given
-	scanner = newBackward(strings.NewReader(data), scanner.Position())
+	backward = newBackward(strings.NewReader(data), backward.Position())
 
 	// when
-	line, err = scanner.Line()
+	line, err = backward.Line()
 
 	// then
 	assert.Equal(t, err, io.EOF)
 	assert.Equal(t, line, "abcdefgh")
-	assert.Equal(t, scanner.Position(), endPosition)
+	assert.Equal(t, backward.Position(), endPosition)
 }
