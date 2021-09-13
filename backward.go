@@ -17,7 +17,7 @@ type backward struct {
 	readerPos        int
 	readerLineEndPos int
 
-	backupReaderPos int
+	err error
 }
 
 func newBackward(reader io.ReaderAt, position int) *backward {
@@ -46,14 +46,6 @@ func newBackwardWithSize(reader io.ReaderAt, position, maxChunkSize int, maxBuff
 	}
 }
 
-func (b *backward) backupPosition() {
-	b.backupReaderPos = b.readerPos
-}
-
-func (b *backward) recoverPosition() {
-	b.readerPos = b.backupReaderPos
-}
-
 func (b *backward) endOfFile() bool {
 	return b.readerPos <= 0
 }
@@ -78,31 +70,27 @@ func (b *backward) allocateChunk() error {
 	if n != chunkSize {
 		return ErrReadFailure
 	}
+	b.readerPos -= chunkSize
 	return nil
 }
 
 func (b *backward) allocateBuffer() error {
 	bufferSize := len(b.buffer)
 	chunkSize := len(b.chunk)
-	if b.buffer == nil {
+	if bufferSize+chunkSize > b.maxBufferSize {
+		return ErrBufferOverflow
+	}
+	if bufferSize+chunkSize > cap(b.buffer) {
 		// FIXME: do not allocate buffer if position is less than or equal to maxChunkSize for reusing chunk buffer.
-		b.buffer = make([]byte, 0, chunkSize)
-		b.buffer = append(b.buffer, b.chunk...)
+		expandedBuffer := make([]byte, 0, bufferSize+chunkSize)
+		expandedBuffer = append(expandedBuffer, b.chunk...)
+		expandedBuffer = append(expandedBuffer, b.buffer...)
+		b.buffer = expandedBuffer
 	} else {
-		if bufferSize+chunkSize > b.maxBufferSize {
-			return ErrBufferOverflow
-		}
-		if bufferSize+chunkSize > cap(b.buffer) {
-			expandedBuffer := make([]byte, 0, bufferSize+chunkSize)
-			expandedBuffer = append(expandedBuffer, b.chunk...)
-			expandedBuffer = append(expandedBuffer, b.buffer...)
-			b.buffer = expandedBuffer
-		} else {
-			prevBufferSize := bufferSize
-			b.buffer = b.buffer[:prevBufferSize+chunkSize]
-			copy(b.buffer[chunkSize:], b.buffer[:prevBufferSize])
-			copy(b.buffer, b.chunk)
-		}
+		prevBufferSize := bufferSize
+		b.buffer = b.buffer[:prevBufferSize+chunkSize]
+		copy(b.buffer[chunkSize:], b.buffer[:prevBufferSize])
+		copy(b.buffer, b.chunk)
 	}
 	return nil
 }
@@ -125,15 +113,16 @@ func (b *backward) read() error {
 	if err := b.allocateBuffer(); err != nil {
 		return err
 	}
-	b.readerPos -= len(b.chunk)
 	return nil
 }
 
 func (b *backward) Line() (string, error) {
+	if b.err != nil {
+		return "", b.err
+	}
 	if b.endOfScan() {
 		return "", io.EOF
 	}
-	b.backupPosition()
 	for {
 		lineFeedStartPos := bytes.LastIndexByte(b.buffer, '\n')
 		if lineFeedStartPos >= 0 {
@@ -142,9 +131,8 @@ func (b *backward) Line() (string, error) {
 			if b.endOfFile() {
 				return b.removeLineFromBuffer(-1), io.EOF
 			}
-			if err := b.read(); err != nil {
-				b.recoverPosition()
-				return "", err
+			if b.err = b.read(); b.err != nil {
+				return "", b.err
 			}
 		}
 	}
