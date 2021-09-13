@@ -1,7 +1,10 @@
 package linescanner
 
 import (
+	"errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"io"
 	"strings"
 	"testing"
 )
@@ -25,7 +28,7 @@ func TestForward_NewForward(t *testing.T) {
 
 func TestForward_NewForward_ErrNilReader(t *testing.T) {
 	assert.PanicsWithValue(t, ErrNilReader, func() {
-		newBackward(nil, endPosition)
+		newForward(nil, endPosition)
 	})
 }
 
@@ -45,45 +48,6 @@ func TestForward_NewForward_ErrGreaterBufferSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrGreaterBufferSize, func() {
 		newForwardWithSize(strings.NewReader(""), endPosition, 100, 10)
 	})
-}
-
-func TestForward_BackupPosition(t *testing.T) {
-	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.readerPos = 1
-	forward.readerLineStartPos = 2
-
-	// when
-	forward.backupPosition()
-
-	// then
-	assert.Equal(t, forward.readerPos, forward.backupReaderPos)
-	assert.Equal(t, forward.readerLineStartPos, forward.backupReaderLineStartPos)
-}
-
-func TestForward_RecoverPosition(t *testing.T) {
-	// given
-	forward := newForward(strings.NewReader(""), 0)
-	forward.readerPos = 2
-	forward.readerLineStartPos = 3
-
-	// when
-	forward.backupPosition()
-
-	// then
-	assert.Equal(t, forward.readerPos, forward.backupReaderPos)
-	assert.Equal(t, forward.readerLineStartPos, forward.backupReaderLineStartPos)
-
-	// given
-	forward.readerPos = 4
-	forward.readerLineStartPos = 5
-
-	// when
-	forward.recoverPosition()
-
-	// then
-	assert.Equal(t, forward.readerPos, forward.backupReaderPos)
-	assert.Equal(t, forward.readerLineStartPos, forward.backupReaderLineStartPos)
 }
 
 func TestForward_EndOfFile_False(t *testing.T) {
@@ -132,55 +96,196 @@ func TestForward_EndOfScan_True(t *testing.T) {
 	assert.True(t, forward.endOfScan())
 }
 
-/*
-func TestArrangeBuffer(t *testing.T) {
+func TestForward_AllocateChunk(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
-	forward.buffer = append(forward.buffer, "abcdefg"...)
-	forward.bufferLineStartPos = 3
+	forward := newForwardWithSize(strings.NewReader("abcdefgh"), 0, 4, 4)
+	forward.readerPos = 4
 
 	// when
-	err := forward.arrangeBuffer(3)
+	err := forward.allocateChunk()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, forward.buffer, []byte("defg"))
-	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, forward.chunk, []byte("efgh"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.readerPos, 8)
 }
 
-func TestArrangeBuffer_BufferOverflow(t *testing.T) {
+func TestForward_AllocateChunk_AlreadyAllocated(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
-	forward.buffer = append(forward.buffer, "abcdefg"...)
-	forward.bufferLineStartPos = 3
+	forward := newForwardWithSize(strings.NewReader("abcdefgh"), 0, 4, 4)
+	forward.readerPos = 4
 
 	// when
-	err := forward.arrangeBuffer(4)
+	forward.chunk = make([]byte, 2, 4)
+	err := forward.allocateChunk()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, forward.chunk, []byte("efgh"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.readerPos, 8)
+}
+
+func TestForward_AllocateChunk_WithPosition(t *testing.T) {
+	// given
+	forward := newForwardWithSize(strings.NewReader("abcdefg"), 2, 4, 4)
+
+	// when
+	err := forward.allocateChunk()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, forward.chunk, []byte("cdef"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.readerPos, 6)
+}
+
+func TestForward_AllocateChunk_ReadError(t *testing.T) {
+	// given
+	readErr := errors.New("")
+	reader := new(ReaderMock)
+	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
+	forward := newForward(reader, 10)
+
+	// when
+	err := forward.allocateChunk()
+
+	// then
+	assert.Equal(t, err, readErr)
+	assert.Equal(t, forward.readerPos, 10)
+}
+
+func TestForward_AllocateChunk_EndOfFile(t *testing.T) {
+	// given
+	forward := newForwardWithSize(strings.NewReader("ab"), 0, 4, 4)
+
+	// when
+	err := forward.allocateChunk()
+
+	// then
+	assert.Equal(t, err, io.EOF)
+	assert.True(t, forward.endOfFile())
+}
+
+func TestForward_AllocateBuffer(t *testing.T) {
+	// given
+	chunk := []byte("efgh")
+	buffer := make([]byte, 0, 8)
+	buffer = append(buffer, []byte("abcd")...)
+	lineStartPos := 4
+	forward := newForwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	forward.chunk = chunk
+	forward.buffer = buffer
+	forward.bufferLineStartPos = 4
+
+	// when
+	err := forward.allocateBuffer()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, forward.buffer, append(buffer, chunk...))
+	assert.Equal(t, cap(forward.buffer), cap(buffer))
+	assert.Equal(t, forward.bufferLineStartPos, lineStartPos)
+}
+
+func TestForward_AllocateBuffer_EmptyChunk(t *testing.T) {
+	// given
+	lineStartPos := 4
+	forward := newForward(strings.NewReader(""), 0)
+	forward.bufferLineStartPos = 4
+
+	// when
+	err := forward.allocateBuffer()
+
+	// then
+	assert.Nil(t, err)
+	assert.Empty(t, forward.buffer)
+	assert.Equal(t, cap(forward.buffer), 0)
+	assert.Equal(t, forward.bufferLineStartPos, lineStartPos)
+}
+
+func TestForward_AllocateBuffer_BufferOverflow(t *testing.T) {
+	// given
+	chunk := []byte("ab")
+	buffer := make([]byte, 4)
+	lineStartPos := 1
+	forward := newForwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	forward.chunk = chunk
+	forward.buffer = buffer
+	forward.bufferLineStartPos = lineStartPos
+
+	// when
+	err := forward.allocateBuffer()
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
-	assert.Equal(t, forward.buffer, []byte("abcdefg"))
-	assert.Equal(t, forward.bufferLineStartPos, 3)
+	assert.Equal(t, forward.buffer, buffer)
+	assert.Equal(t, forward.bufferLineStartPos, lineStartPos)
 }
 
-func TestArrangeBuffer_NotArranged(t *testing.T) {
+func TestForward_AllocateBuffer_BufferExpanded(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 7)
-	forward.buffer = append(forward.buffer, "abcde"...)
-	forward.bufferLineStartPos = 3
+	chunk := []byte("fgh")
+	buffer := []byte("a\nbcde")
+	bufferLineStartPos := 2
+	forward := newForwardWithSize(strings.NewReader(""), 0, len(chunk), 1024)
+	forward.chunk = chunk
+	forward.buffer = buffer
+	forward.bufferLineStartPos = bufferLineStartPos
 
 	// when
-	err := forward.arrangeBuffer(2)
+	err := forward.allocateBuffer()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, forward.buffer, []byte("abcde"))
-	assert.Equal(t, forward.bufferLineStartPos, 3)
+	assert.Equal(t, forward.buffer, []byte("bcdefgh"))
+	assert.Equal(t, cap(forward.buffer), 7)
+	assert.Equal(t, forward.bufferLineStartPos, 0)
 }
 
-func TestRead(t *testing.T) {
+func TestForward_AllocateBuffer_BufferReused(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader("abcdefghijklmnop"), 0, 4, 8)
+	chunk := []byte("fg")
+	buffer := []byte("a\nbcde")
+	bufferLineStartPos := 2
+	forward := newForwardWithSize(strings.NewReader(""), 0, len(chunk), 1024)
+	forward.chunk = chunk
+	forward.buffer = buffer
+	forward.bufferLineStartPos = bufferLineStartPos
+
+	// when
+	err := forward.allocateBuffer()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, forward.buffer, []byte("bcdefg"))
+	assert.Equal(t, cap(forward.buffer), cap(buffer))
+	assert.Equal(t, forward.bufferLineStartPos, 0)
+}
+
+func TestForward_RemoveLineFromBuffer(t *testing.T) {
+	// given
+	readerLineStartPos := 100
+	bufferLineStartPos := 3
+	lineSize := 6
+	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 4)
+	forward.buffer = []byte("ab\ncdefg\r\n")
+	forward.readerLineStartPos = readerLineStartPos
+	forward.bufferLineStartPos = bufferLineStartPos
+
+	// when
+	line := forward.removeLineFromBuffer(lineSize)
+
+	// then
+	assert.Equal(t, line, "cdefg")
+	assert.Equal(t, forward.readerLineStartPos, readerLineStartPos+lineSize+1)
+	assert.Equal(t, forward.bufferLineStartPos, bufferLineStartPos+lineSize+1)
+}
+
+func TestForward_Read(t *testing.T) {
+	// given
+	forward := newForwardWithSize(strings.NewReader("abcd\nefgh\nijkl"), 0, 4, 14)
 
 	// when
 	err := forward.read()
@@ -188,341 +293,274 @@ func TestRead(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	assert.Equal(t, forward.chunk, []byte("abcd"))
+	assert.Equal(t, cap(forward.chunk), 4)
 	assert.Equal(t, forward.buffer, []byte("abcd"))
-	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, cap(forward.buffer), 4)
 	assert.Equal(t, forward.readerPos, 4)
-	assert.False(t, forward.endOfFile)
+	assert.False(t, forward.endOfFile())
 
 	// when
 	err = forward.read()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, forward.chunk, []byte("efgh"))
-	assert.Equal(t, forward.buffer, []byte("abcdefgh"))
-	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, forward.chunk, []byte("\nefg"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.buffer, []byte("abcd\nefg"))
+	assert.Equal(t, cap(forward.buffer), 8)
 	assert.Equal(t, forward.readerPos, 8)
-	assert.False(t, forward.endOfFile)
+	assert.False(t, forward.endOfFile())
+
+	// when
+	err = forward.read()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, forward.chunk, []byte("h\nij"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.buffer, []byte("abcd\nefgh\nij"))
+	assert.Equal(t, cap(forward.buffer), 12)
+	assert.Equal(t, forward.readerPos, 12)
+	assert.False(t, forward.endOfFile())
+
+	// when
+	err = forward.read()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, forward.chunk, []byte("kl"))
+	assert.Equal(t, forward.buffer, []byte("abcd\nefgh\nijkl"))
+	assert.Equal(t, cap(forward.buffer), 14)
+	assert.True(t, forward.endOfFile())
 }
 
-func TestRead_EndOfFile(t *testing.T) {
+func TestForward_Read_AllocateChunkError(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader("abc"), 0, 4, 7)
+	readErr := errors.New("")
+	reader := new(ReaderMock)
+	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
+	forward := newForward(reader, 10)
 
 	// when
 	err := forward.read()
 
 	// then
-	assert.Nil(t, err)
-	assert.Equal(t, forward.chunk, append([]byte("abc"), 0x00))
-	assert.Equal(t, forward.buffer, []byte("abc"))
-	assert.Equal(t, forward.bufferLineStartPos, 0)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-}
-
-func TestRead_Arranged(t *testing.T) {
-	// given
-	forward := newForwardWithSize(strings.NewReader("abcdefghijk"), 7, 3, 7)
-	forward.buffer = append(forward.buffer, "abcdefg"...)
-	forward.bufferLineStartPos = 3
-
-	// when
-	err := forward.read()
-
-	// then
-	assert.Nil(t, err)
-	assert.Equal(t, forward.chunk, []byte("hij"))
-	assert.Equal(t, forward.buffer, []byte("defghij"))
-	assert.Equal(t, forward.bufferLineStartPos, 0)
+	assert.Equal(t, err, readErr)
 	assert.Equal(t, forward.readerPos, 10)
-	assert.False(t, forward.endOfFile)
 }
 
-func TestRead_BufferOverflow(t *testing.T) {
+func TestForward_Read_AllocateChunkEndOfFile(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader("abcdefghijk"), 7, 4, 7)
-	forward.buffer = append(forward.buffer, "abcdefg"...)
-	forward.bufferLineStartPos = 3
+	data := "abcd\nefgh\nijkl"
+	forward := newForward(strings.NewReader("abcd\nefgh\nijkl"), 0)
+
+	// when
+	err := forward.read()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, forward.chunk, []byte(data))
+	assert.Equal(t, forward.buffer, []byte(data))
+	assert.True(t, forward.endOfFile())
+}
+
+func TestForward_Read_AllocateBufferError(t *testing.T) {
+	// given
+	data := "abcdefg"
+	buffer := "wxyz"
+	forward := newForwardWithSize(strings.NewReader(data), 0, 4, len(buffer))
+	forward.buffer = []byte(buffer)
+	forward.readerPos = 6
 
 	// when
 	err := forward.read()
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
-	assert.Equal(t, forward.chunk, []byte("hijk"))
-	assert.Equal(t, forward.buffer, []byte("abcdefg"))
-	assert.Equal(t, forward.bufferLineStartPos, 3)
-	assert.Equal(t, forward.readerPos, 7)
-	assert.False(t, forward.endOfFile)
+	assert.Equal(t, forward.chunk, []byte("g"))
+	assert.Equal(t, forward.buffer, []byte(buffer))
+	assert.True(t, forward.endOfFile())
 }
 
-func TestLine(t *testing.T) {
+func TestForward_Line(t *testing.T) {
 	// given
-	reader := strings.NewReader("ab\ncdefg")
-	forward := newForwardWithSize(reader, 0, 4, 5)
+	data := "a\nb\r\ncdef\ngh\ni"
+	forward := newForwardWithSize(strings.NewReader(data), 0, 4, 8)
 
 	// when
 	line, err := forward.Line()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, line, "ab")
-	assert.Equal(t, forward.Position(), 3)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 3)
+	assert.Equal(t, line, "a")
+	assert.Equal(t, forward.chunk, []byte("a\nb\r"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.buffer, []byte("a\nb\r"))
+	assert.Equal(t, cap(forward.buffer), 4)
 	assert.Equal(t, forward.readerPos, 4)
-	assert.False(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
-}
-
-func TestLine_EndOfFileButNotEndOfScan(t *testing.T) {
-	// given
-	reader := strings.NewReader("ab\ncdefg\nhijk")
-	forward := newForward(reader, 0)
-
-	// when
-	line, err := forward.Line()
-
-	// then
-	assert.Nil(t, err)
-	assert.Equal(t, line, "ab")
-	assert.Equal(t, forward.Position(), 3)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 3)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
-
-	// when
-	line, err = forward.Line()
-
-	// then
-	assert.Nil(t, err)
-	assert.Equal(t, line, "cdefg")
-	assert.Equal(t, forward.Position(), 9)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 9)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
-}
-
-func TestLine_BufferOverflow(t *testing.T) {
-	// given
-	reader := strings.NewReader("ab\ncdefg")
-	forward := newForwardWithSize(reader, 0, 4, 4)
-
-	// when
-	line, err := forward.Line()
-
-	// then
-	assert.Nil(t, err)
-	assert.Equal(t, line, "ab")
-	assert.Equal(t, forward.Position(), 3)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 3)
-	assert.Equal(t, forward.readerPos, 4)
-	assert.False(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
-
-	// when
-	line, err = forward.Line()
-
-	// then
-	assert.Equal(t, err, ErrBufferOverflow)
-	assert.Empty(t, line)
-	assert.Equal(t, forward.Position(), 3)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 3)
-	assert.Equal(t, forward.readerPos, 4)
-	assert.False(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
-}
-
-func TestLine_WithEmpty(t *testing.T) {
-	// given
-	reader := strings.NewReader("")
-	forward := newForwardWithSize(reader, 0, 4, 4)
-
-	// when
-	line, err := forward.Line()
-
-	// then
-	assert.Equal(t, err, io.EOF)
-	assert.Empty(t, line)
-	assert.Equal(t, forward.Position(), endPosition)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, endPosition)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.True(t, forward.endOfScan)
-}
-
-func TestLine_WithTextOnly(t *testing.T) {
-	// given
-	reader := strings.NewReader("abcdefg")
-	forward := newForward(reader, 0)
-
-	// when
-	lines, err := forward.Line()
-
-	// then
-	assert.Equal(t, err, io.EOF)
-	assert.Equal(t, lines, "abcdefg")
-	assert.Equal(t, forward.Position(), endPosition)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, endPosition)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.True(t, forward.endOfScan)
-}
-
-func TestLine_WithLinesFeedOnly(t *testing.T) {
-	// given
-	reader := strings.NewReader("\n\n")
-	forward := newForward(reader, 0)
-
-	// when
-	line, err := forward.Line()
-
-	// then
-	assert.Nil(t, err)
-	assert.Equal(t, line, "")
-	assert.Equal(t, forward.Position(), 1)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 1)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
-
-	// when
-	line, err = forward.Line()
-
-	// then
-	assert.Nil(t, err)
-	assert.Equal(t, line, "")
-	assert.Equal(t, forward.Position(), 2)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
+	assert.Equal(t, forward.readerLineStartPos, 2)
 	assert.Equal(t, forward.bufferLineStartPos, 2)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
+	assert.False(t, forward.endOfFile())
+	assert.False(t, forward.endOfScan())
 
 	// when
 	line, err = forward.Line()
-
-	// then
-	assert.Equal(t, err, io.EOF)
-	assert.Equal(t, line, "")
-	assert.Equal(t, forward.Position(), endPosition)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, endPosition)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.True(t, forward.endOfScan)
-}
-
-func TestLine_WithCarrageReturn(t *testing.T) {
-	// given
-	reader := strings.NewReader("ab\r\ncdefg")
-	forward := newForwardWithSize(reader, 0, 4, 5)
-
-	// when
-	line, err := forward.Line()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, line, "ab")
-	assert.Equal(t, forward.Position(), 4)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 4)
-	assert.Equal(t, forward.readerPos, 4)
-	assert.False(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
+	assert.Equal(t, line, "b")
+	assert.Equal(t, forward.chunk, []byte("\ncde"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.buffer, []byte("b\r\ncde"))
+	assert.Equal(t, cap(forward.buffer), 6)
+	assert.Equal(t, forward.readerPos, 8)
+	assert.Equal(t, forward.readerLineStartPos, 5)
+	assert.Equal(t, forward.bufferLineStartPos, 3)
+	assert.False(t, forward.endOfFile())
+	assert.False(t, forward.endOfScan())
+
+	// when
+	line, err = forward.Line()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, line, "cdef")
+	assert.Equal(t, forward.chunk, []byte("f\ngh"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.buffer, []byte("cdef\ngh"))
+	assert.Equal(t, cap(forward.buffer), 7)
+	assert.Equal(t, forward.readerPos, 12)
+	assert.Equal(t, forward.readerLineStartPos, 10)
+	assert.Equal(t, forward.bufferLineStartPos, 5)
+	assert.False(t, forward.endOfFile())
+	assert.False(t, forward.endOfScan())
+
+	// when
+	line, err = forward.Line()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, line, "gh")
+	assert.Equal(t, forward.chunk, []byte("\ni"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.buffer, []byte("gh\ni"))
+	assert.Equal(t, cap(forward.buffer), 7)
+	assert.Equal(t, forward.readerPos, endPosition)
+	assert.Equal(t, forward.readerLineStartPos, 13)
+	assert.Equal(t, forward.bufferLineStartPos, 3)
+	assert.True(t, forward.endOfFile())
+	assert.False(t, forward.endOfScan())
 
 	// when
 	line, err = forward.Line()
 
 	// then
 	assert.Equal(t, err, io.EOF)
-	assert.Equal(t, line, "cdefg")
-	assert.Equal(t, forward.Position(), endPosition)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, endPosition)
+	assert.Equal(t, line, "i")
+	assert.Equal(t, forward.chunk, []byte("\ni"))
+	assert.Equal(t, cap(forward.chunk), 4)
+	assert.Equal(t, forward.buffer, []byte("gh\ni"))
+	assert.Equal(t, cap(forward.buffer), 7)
 	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.True(t, forward.endOfScan)
+	assert.Equal(t, forward.readerLineStartPos, endPosition)
+	assert.Equal(t, forward.bufferLineStartPos, 5)
+	assert.True(t, forward.endOfFile())
+	assert.True(t, forward.endOfScan())
 }
 
-func TestLine_WithPosition(t *testing.T) {
+func TestForward_Line_Error(t *testing.T) {
 	// given
-	reader := strings.NewReader("ab\ncdefg")
-	forward := newForward(reader, 3)
-
-	// when
-	line, err := forward.Line()
-
-	// then
-	assert.Equal(t, err, io.EOF)
-	assert.Equal(t, line, "cdefg")
-	assert.Equal(t, forward.Position(), endPosition)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, endPosition)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.True(t, forward.endOfScan)
-}
-
-func TestLine_WithExceedPosition(t *testing.T) {
-	// given
-	reader := strings.NewReader("ab\ncdefg")
-	forward := newForward(reader, 100)
-
-	// when
-	line, err := forward.Line()
-
-	// then
-	assert.Equal(t, err, io.EOF)
-	assert.Empty(t, line, "")
-	assert.Equal(t, forward.Position(), endPosition)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, endPosition)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.True(t, forward.endOfScan)
-}
-
-func TestLine_WithReaderLineStartPosition(t *testing.T) {
-	// given
-	reader := strings.NewReader("ab\ncdefg\nhijk")
+	readErr := errors.New("")
+	reader := new(ReaderMock)
+	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
 	forward := newForward(reader, 0)
 
 	// when
 	line, err := forward.Line()
 
 	// then
-	assert.Nil(t, err)
-	assert.Equal(t, line, "ab")
-	assert.Equal(t, forward.Position(), 3)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 3)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
+	assert.Equal(t, err, readErr)
+	assert.Empty(t, line)
 
 	// when
-	forward = newForward(reader, forward.Position())
+	line, err = forward.Line()
+
+	// then
+	assert.Equal(t, err, readErr)
+	assert.Empty(t, line)
+}
+
+func TestForward_Line_AlreadyEndOfScan(t *testing.T) {
+	// given
+	forward := newForward(strings.NewReader(""), endPosition)
+
+	// when
+	line, err := forward.Line()
+
+	// then
+	assert.Equal(t, err, io.EOF)
+	assert.Equal(t, line, "")
+	assert.True(t, forward.endOfFile())
+	assert.True(t, forward.endOfScan())
+}
+
+func TestForward_Line_LineFeedOnly(t *testing.T) {
+	// given
+	data := "\n\r\n\n"
+	forward := newForward(strings.NewReader(data), 0)
+
+	// when
+	line, err := forward.Line()
+
+	// then
+	assert.Nil(t, err)
+	assert.Empty(t, line)
+
+	// when
 	line, err = forward.Line()
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, line, "cdefg")
-	assert.Equal(t, forward.Position(), 9)
-	assert.Equal(t, forward.Position(), forward.readerLineStartPos)
-	assert.Equal(t, forward.bufferLineStartPos, 6)
-	assert.Equal(t, forward.readerPos, endPosition)
-	assert.True(t, forward.endOfFile)
-	assert.False(t, forward.endOfScan)
+	assert.Empty(t, line)
+
+	// when
+	line, err = forward.Line()
+
+	// then
+	assert.Nil(t, err)
+	assert.Empty(t, line)
+
+	// when
+	line, err = forward.Line()
+
+	// then
+	assert.Equal(t, err, io.EOF)
+	assert.Empty(t, line)
+	assert.True(t, forward.endOfFile())
+	assert.True(t, forward.endOfScan())
 }
-*/
+
+func TestForward_Position(t *testing.T) {
+	// given
+	data := "abcdefgh\r\nhij"
+	forward := newForward(strings.NewReader(data), 0)
+
+	// when
+	line, err := forward.Line()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, line, "abcdefgh")
+	assert.Equal(t, forward.Position(), 10)
+
+	// given
+	forward = newForward(strings.NewReader(data), forward.Position())
+
+	// when
+	line, err = forward.Line()
+
+	// then
+	assert.Equal(t, err, io.EOF)
+	assert.Equal(t, line, "hij")
+	assert.Equal(t, forward.Position(), endPosition)
+}

@@ -2,11 +2,12 @@ package linescanner
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type ReaderMock struct {
@@ -75,40 +76,6 @@ func TestBackward_NewBackwardWithSize(t *testing.T) {
 	assert.Equal(t, backward.readerLineEndPos, position)
 	assert.Equal(t, backward.maxChunkSize, maxChunkSize)
 	assert.Equal(t, backward.maxBufferSize, maxBufferSize)
-}
-
-func TestBackward_BackupPosition(t *testing.T) {
-	// given
-	backward := newBackward(strings.NewReader(""), 0)
-	backward.readerPos = 1
-	backward.readerLineEndPos = 2
-
-	// when
-	backward.backupPosition()
-
-	// then
-	assert.Equal(t, backward.readerPos, backward.backupReaderPos)
-}
-
-func TestBackward_RecoverPosition(t *testing.T) {
-	// given
-	backward := newBackward(strings.NewReader(""), 0)
-	backward.readerPos = 1
-
-	// when
-	backward.backupPosition()
-
-	// then
-	assert.Equal(t, backward.readerPos, backward.backupReaderPos)
-
-	// given
-	backward.readerPos = 10
-
-	// when
-	backward.recoverPosition()
-
-	// then
-	assert.Equal(t, backward.readerPos, 1)
 }
 
 func TestBackward_EndOfFile_False(t *testing.T) {
@@ -186,8 +153,8 @@ func TestBackward_AllocateChunk_GreaterThanReaderPosWhenFirstAllocated(t *testin
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, len(backward.chunk), backward.readerPos)
-	assert.Equal(t, cap(backward.chunk), backward.readerPos)
+	assert.Equal(t, len(backward.chunk), 2)
+	assert.Equal(t, cap(backward.chunk), 2)
 }
 
 func TestBackward_AllocateChunk_GreaterThanReaderPosWhenAlreadyAllocated(t *testing.T) {
@@ -210,7 +177,7 @@ func TestBackward_AllocateChunk_GreaterThanReaderPosWhenAlreadyAllocated(t *test
 
 	// then
 	assert.Nil(t, err)
-	assert.Equal(t, len(backward.chunk), backward.readerPos)
+	assert.Equal(t, len(backward.chunk), 2)
 	assert.Equal(t, cap(backward.chunk), backward.maxChunkSize)
 }
 
@@ -280,7 +247,7 @@ func TestBackward_AllocateChunk_LessThanReaderPos(t *testing.T) {
 	assert.Equal(t, cap(backward.chunk), backward.maxChunkSize)
 }
 
-func TestBackward_AllocateBuffer_FirstAllocation(t *testing.T) {
+func TestBackward_AllocateBuffer(t *testing.T) {
 	// given
 	chunk := []byte("abcd")
 	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), len(chunk))
@@ -308,6 +275,8 @@ func TestBackward_AllocateBuffer_BufferOverflow(t *testing.T) {
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
+	assert.Equal(t, backward.buffer, buffer)
+	assert.Equal(t, backward.readerPos, 0)
 }
 
 func TestBackward_AllocateBuffer_BufferExpanded(t *testing.T) {
@@ -432,10 +401,10 @@ func TestBackward_Read_AllocateChunkError(t *testing.T) {
 
 func TestBackward_Read_AllocateBufferError(t *testing.T) {
 	// given
-	chunk := []byte("abcd")
-	buffer := make([]byte, 1, len(chunk))
-	backward := newBackwardWithSize(strings.NewReader("abcd"), 4, len(chunk), cap(buffer))
-	backward.chunk = chunk
+	data := "abcd"
+	buffer := make([]byte, 1, len(data))
+	readerPos := 4
+	backward := newBackwardWithSize(strings.NewReader(data), readerPos, len(data), cap(buffer))
 	backward.buffer = buffer
 
 	// when
@@ -443,7 +412,7 @@ func TestBackward_Read_AllocateBufferError(t *testing.T) {
 
 	// then
 	assert.Equal(t, err, ErrBufferOverflow)
-	assert.Equal(t, backward.readerPos, 4)
+	assert.Equal(t, backward.readerPos, 0)
 }
 
 func TestBackward_Line(t *testing.T) {
@@ -514,38 +483,24 @@ func TestBackward_Line(t *testing.T) {
 
 func TestBackward_Line_Error(t *testing.T) {
 	// given
-	data := "abcdefgh\nhij"
-	backward := newBackwardWithSize(strings.NewReader(data), len(data), 4, 5)
+	readErr := errors.New("")
+	reader := new(ReaderMock)
+	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
+	backward := newBackward(reader, 100)
 
 	// when
 	line, err := backward.Line()
 
 	// then
-	assert.Nil(t, err)
-	assert.Equal(t, line, "hij")
-	assert.Equal(t, backward.chunk, []byte("\nhij"))
-	assert.Equal(t, cap(backward.chunk), 4)
-	assert.Equal(t, backward.buffer, []byte(""))
-	assert.Equal(t, cap(backward.buffer), 4)
-	assert.Equal(t, backward.readerPos, len(data)-backward.maxChunkSize)
-	assert.Equal(t, backward.readerLineEndPos, len(data)-backward.maxChunkSize)
-	assert.False(t, backward.endOfFile())
-	assert.False(t, backward.endOfScan())
+	assert.Equal(t, err, readErr)
+	assert.Empty(t, line)
 
 	// when
 	line, err = backward.Line()
 
 	// then
-	assert.Equal(t, err, ErrBufferOverflow)
-	assert.Equal(t, line, "")
-	assert.Equal(t, backward.chunk, []byte("abcd"))
-	assert.Equal(t, cap(backward.chunk), 4)
-	assert.Equal(t, backward.buffer, []byte("efgh"))
-	assert.Equal(t, cap(backward.buffer), 4)
-	assert.Equal(t, backward.readerPos, len(data)-backward.maxChunkSize)
-	assert.Equal(t, backward.readerLineEndPos, len(data)-backward.maxChunkSize)
-	assert.False(t, backward.endOfFile())
-	assert.False(t, backward.endOfScan())
+	assert.Equal(t, err, readErr)
+	assert.Empty(t, line)
 }
 
 func TestBackward_Line_AlreadyEndOfScan(t *testing.T) {
@@ -558,6 +513,8 @@ func TestBackward_Line_AlreadyEndOfScan(t *testing.T) {
 	// then
 	assert.Equal(t, err, io.EOF)
 	assert.Equal(t, line, "")
+	assert.True(t, backward.endOfFile())
+	assert.True(t, backward.endOfScan())
 }
 
 func TestBackward_Line_LineFeedOnly(t *testing.T) {
@@ -571,6 +528,8 @@ func TestBackward_Line_LineFeedOnly(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	assert.Empty(t, line)
+	assert.True(t, backward.endOfFile())
+	assert.False(t, backward.endOfScan())
 
 	// when
 	line, err = backward.Line()
@@ -578,6 +537,8 @@ func TestBackward_Line_LineFeedOnly(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	assert.Empty(t, line)
+	assert.True(t, backward.endOfFile())
+	assert.False(t, backward.endOfScan())
 
 	// when
 	line, err = backward.Line()
@@ -585,6 +546,8 @@ func TestBackward_Line_LineFeedOnly(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	assert.Empty(t, line)
+	assert.True(t, backward.endOfFile())
+	assert.True(t, backward.endOfScan())
 
 	// when
 	line, err = backward.Line()
@@ -592,6 +555,8 @@ func TestBackward_Line_LineFeedOnly(t *testing.T) {
 	// then
 	assert.Equal(t, err, io.EOF)
 	assert.Empty(t, line)
+	assert.True(t, backward.endOfFile())
+	assert.True(t, backward.endOfScan())
 }
 
 func TestBackward_Position(t *testing.T) {
@@ -603,8 +568,9 @@ func TestBackward_Position(t *testing.T) {
 	line, err := backward.Line()
 
 	// then
-	assert.Nil(t, err, nil)
+	assert.Nil(t, err)
 	assert.Equal(t, line, "hij")
+	assert.Equal(t, backward.Position(), 9)
 
 	// given
 	backward = newBackward(strings.NewReader(data), backward.Position())
