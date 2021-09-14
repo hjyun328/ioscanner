@@ -75,20 +75,19 @@ func (b *backward) allocateChunk() error {
 }
 
 func (b *backward) allocateBuffer() error {
-	bufferSize := len(b.buffer)
 	chunkSize := len(b.chunk)
-	if bufferSize+chunkSize > b.maxBufferSize {
+	bufferSize := len(b.buffer)
+	if chunkSize+bufferSize > b.maxBufferSize {
 		return ErrBufferOverflow
 	}
-	if bufferSize+chunkSize > cap(b.buffer) {
-		// FIXME: do not allocate buffer if position is less than or equal to maxChunkSize for reusing chunk buffer.
-		expandedBuffer := make([]byte, 0, bufferSize+chunkSize)
+	if chunkSize+bufferSize > cap(b.buffer) {
+		expandedBuffer := make([]byte, 0, chunkSize+bufferSize)
 		expandedBuffer = append(expandedBuffer, b.chunk...)
 		expandedBuffer = append(expandedBuffer, b.buffer...)
 		b.buffer = expandedBuffer
 	} else {
 		prevBufferSize := bufferSize
-		b.buffer = b.buffer[:prevBufferSize+chunkSize]
+		b.buffer = b.buffer[:chunkSize+prevBufferSize]
 		copy(b.buffer[chunkSize:], b.buffer[:prevBufferSize])
 		copy(b.buffer, b.chunk)
 	}
@@ -96,10 +95,10 @@ func (b *backward) allocateBuffer() error {
 }
 
 func (b *backward) removeLineFromBuffer(lineFeedStartPos int) string {
-	orgLine := b.buffer[lineFeedStartPos+1:]
-	line := removeCarriageReturn(orgLine)
+	lineWithCR := b.buffer[lineFeedStartPos+1:]
+	line := removeCarriageReturn(lineWithCR)
 	b.buffer = b.buffer[:maxInt(lineFeedStartPos, 0)]
-	b.readerLineEndPos -= len(orgLine)
+	b.readerLineEndPos -= len(lineWithCR)
 	if lineFeedStartPos >= 0 {
 		b.readerLineEndPos--
 	}
