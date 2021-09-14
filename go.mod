@@ -1,4 +1,4 @@
-module linescanner
+module github.com/hjyun328/linescanner
 
 go 1.16
 
