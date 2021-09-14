@@ -14,7 +14,7 @@ func maxInt(x int, y int) int {
 	return y
 }
 
-func removeCarrageReturn(line []byte) string {
+func removeCarriageReturn(line []byte) string {
 	if len(line) > 0 && line[len(line)-1] == '\r' {
 		return string(line[:len(line)-1])
 	}

@@ -97,7 +97,7 @@ func (b *backward) allocateBuffer() error {
 
 func (b *backward) removeLineFromBuffer(lineFeedStartPos int) string {
 	orgLine := b.buffer[lineFeedStartPos+1:]
-	line := removeCarrageReturn(orgLine)
+	line := removeCarriageReturn(orgLine)
 	b.buffer = b.buffer[:maxInt(lineFeedStartPos, 0)]
 	b.readerLineEndPos -= len(orgLine)
 	if lineFeedStartPos >= 0 {

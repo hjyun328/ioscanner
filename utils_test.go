@@ -42,7 +42,7 @@ func TestRemoveCarrageReturn(t *testing.T) {
 	line := []byte("abcd\r")
 
 	// when
-	lineStr := removeCarrageReturn(line)
+	lineStr := removeCarriageReturn(line)
 
 	// then
 	assert.Equal(t, lineStr, "abcd")
@@ -53,7 +53,7 @@ func TestRemoveCarrageReturn_NoCarrageReturn(t *testing.T) {
 	line := []byte("abcd")
 
 	// when
-	lineStr := removeCarrageReturn(line)
+	lineStr := removeCarriageReturn(line)
 
 	// then
 	assert.Equal(t, lineStr, "abcd")
@@ -64,7 +64,7 @@ func TestRemoveCarrageReturn_EmptyLine(t *testing.T) {
 	line := []byte("")
 
 	// when
-	lineStr := removeCarrageReturn(line)
+	lineStr := removeCarriageReturn(line)
 
 	// then
 	assert.Empty(t, lineStr)

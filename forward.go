@@ -99,7 +99,7 @@ func (f *forward) allocateBuffer() error {
 }
 
 func (f *forward) removeLineFromBuffer(lineSize int) string {
-	line := removeCarrageReturn(f.buffer[f.bufferLineStartPos : f.bufferLineStartPos+lineSize])
+	line := removeCarriageReturn(f.buffer[f.bufferLineStartPos : f.bufferLineStartPos+lineSize])
 	f.readerLineStartPos += lineSize + 1
 	f.bufferLineStartPos += lineSize + 1
 	return line
