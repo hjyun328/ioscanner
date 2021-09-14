@@ -71,12 +71,12 @@ func (f *forward) allocateChunk() error {
 		f.readerPos = endPosition
 	}
 	f.chunk = f.chunk[:n]
-	return err
+	return nil
 }
 
 func (f *forward) allocateBuffer() error {
 	chunkSize := len(f.chunk)
-	if chunkSize <= 0 {
+	if chunkSize == 0 {
 		return nil
 	}
 	bufferLineSize := len(f.buffer[f.bufferLineStartPos:])
@@ -84,7 +84,6 @@ func (f *forward) allocateBuffer() error {
 		return ErrBufferOverflow
 	}
 	if bufferLineSize+chunkSize > cap(f.buffer) {
-		// FIXME: do not allocate buffer if position is less than or equal to maxChunkSize for reusing chunk buffer.
 		expandedBuffer := make([]byte, 0, bufferLineSize+chunkSize)
 		expandedBuffer = append(expandedBuffer, f.buffer[f.bufferLineStartPos:]...)
 		f.buffer = expandedBuffer
@@ -106,7 +105,7 @@ func (f *forward) removeLineFromBuffer(lineSize int) string {
 }
 
 func (f *forward) read() (err error) {
-	if err = f.allocateChunk(); err != nil && err != io.EOF {
+	if err = f.allocateChunk(); err != nil {
 		return err
 	}
 	if err := f.allocateBuffer(); err != nil {
