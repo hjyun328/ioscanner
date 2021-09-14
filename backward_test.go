@@ -330,6 +330,21 @@ func TestBackward_RemoveLineFromBuffer(t *testing.T) {
 	assert.Equal(t, backward.readerLineEndPos, 16-(len(line) /* line feed */ +1 /* carrage return */ +1))
 }
 
+func TestBackward_RemoveLineFromBuffer_NoLineFeed(t *testing.T) {
+	// given
+	backward := newBackwardWithSize(strings.NewReader(""), 5, 4, 4)
+	backward.buffer = []byte("abcde")
+
+	// when
+	line := backward.removeLineFromBuffer(-1)
+
+	// then
+	assert.Equal(t, line, "abcde")
+	assert.Equal(t, len(backward.buffer), 0)
+	assert.Equal(t, cap(backward.buffer), 5)
+	assert.Equal(t, backward.readerLineEndPos, 0)
+}
+
 func TestBackward_Read(t *testing.T) {
 	// given
 	data := "abcd\nefgh\nijkl"
