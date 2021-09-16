@@ -18,7 +18,7 @@ import (
 
 func main() {
 	data := "abcd\nefgh\nijkl"
-	scanner := linescanner.New(linescanner.Backward, strings.NewReader(data), len(data))
+	scanner := linescanner.NewBackward(strings.NewReader(data), len(data))
 
 	line, err := scanner.Line()
 	if err != nil && err != io.EOF {
@@ -32,7 +32,7 @@ func main() {
 	}
 	fmt.Println(line, err == io.EOF) // efgh false
 
-	scanner = linescanner.New(linescanner.Backward, strings.NewReader(data), scanner.Position())
+	scanner = linescanner.NewBackward(strings.NewReader(data), scanner.Position())
 
 	line, err = scanner.Line()
 	if err != nil && err != io.EOF {
@@ -40,7 +40,7 @@ func main() {
 	}
 	fmt.Println(line, err == io.EOF) // abcd true
 
-	scanner = linescanner.New(linescanner.Backward, strings.NewReader(data), 9)
+	scanner = linescanner.NewBackward(strings.NewReader(data), 9)
 
 	line, err = scanner.Line()
 	if err != nil && err != io.EOF {
@@ -64,7 +64,7 @@ import (
 
 func main() {
 	data := "abcd\nefgh\nijkl"
-	scanner := linescanner.New(linescanner.Forward, strings.NewReader(data), 0)
+	scanner := linescanner.NewForward(strings.NewReader(data), 0)
 
 	line, err := scanner.Line()
 	if err != nil && err != io.EOF {
@@ -72,7 +72,7 @@ func main() {
 	}
 	fmt.Println(line, err == io.EOF) // abcd false
 
-	scanner = linescanner.New(linescanner.Forward, strings.NewReader(data), scanner.Position())
+	scanner = linescanner.NewForward(strings.NewReader(data), scanner.Position())
 
 	line, err = scanner.Line()
 	if err != nil && err != io.EOF {
@@ -86,7 +86,7 @@ func main() {
 	}
 	fmt.Println(line, err == io.EOF) // ijkl true
 
-	scanner = linescanner.New(linescanner.Forward, strings.NewReader(data), 5)
+	scanner = linescanner.NewForward(strings.NewReader(data), 5)
 
 	line, err = scanner.Line()
 	if err != nil && err != io.EOF {
