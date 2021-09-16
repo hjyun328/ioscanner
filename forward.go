@@ -21,11 +21,11 @@ type forward struct {
 	err error
 }
 
-func newForward(reader io.ReaderAt, position int) *forward {
-	return newForwardWithSize(reader, position, defaultMaxChunkSize, defaultMaxBufferSize)
+func NewForward(reader io.ReaderAt, position int) *forward {
+	return NewForwardWithSize(reader, position, defaultMaxChunkSize, defaultMaxBufferSize)
 }
 
-func newForwardWithSize(reader io.ReaderAt, position int, maxChunkSize int, maxBufferSize int) *forward {
+func NewForwardWithSize(reader io.ReaderAt, position int, maxChunkSize int, maxBufferSize int) *forward {
 	if reader == nil {
 		panic(ErrNilReader)
 	}

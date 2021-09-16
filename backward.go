@@ -20,11 +20,11 @@ type backward struct {
 	err error
 }
 
-func newBackward(reader io.ReaderAt, position int) *backward {
-	return newBackwardWithSize(reader, position, defaultMaxChunkSize, defaultMaxBufferSize)
+func NewBackward(reader io.ReaderAt, position int) *backward {
+	return NewBackwardWithSize(reader, position, defaultMaxChunkSize, defaultMaxBufferSize)
 }
 
-func newBackwardWithSize(reader io.ReaderAt, position, maxChunkSize int, maxBufferSize int) *backward {
+func NewBackwardWithSize(reader io.ReaderAt, position, maxChunkSize int, maxBufferSize int) *backward {
 	if reader == nil {
 		panic(ErrNilReader)
 	}

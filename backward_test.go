@@ -26,7 +26,7 @@ func TestBackward_NewBackward(t *testing.T) {
 	position := 100
 
 	// when
-	backward := newBackward(reader, position)
+	backward := NewBackward(reader, position)
 
 	// then
 	assert.Equal(t, backward.reader, reader)
@@ -38,25 +38,25 @@ func TestBackward_NewBackward(t *testing.T) {
 
 func TestBackward_NewBackward_ErrNilReader(t *testing.T) {
 	assert.PanicsWithValue(t, ErrNilReader, func() {
-		newBackward(nil, endPosition)
+		NewBackward(nil, endPosition)
 	})
 }
 
 func TestBackward_NewBackward_ErrInvalidMaxChunkSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrInvalidMaxChunkSize, func() {
-		newBackwardWithSize(strings.NewReader(""), endPosition, 0, 100)
+		NewBackwardWithSize(strings.NewReader(""), endPosition, 0, 100)
 	})
 }
 
 func TestBackward_NewBackward_ErrInvalidMaxBufferSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrInvalidMaxBufferSize, func() {
-		newBackwardWithSize(strings.NewReader(""), endPosition, 100, 0)
+		NewBackwardWithSize(strings.NewReader(""), endPosition, 100, 0)
 	})
 }
 
 func TestBackward_NewBackward_ErrGreaterBufferSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrGreaterBufferSize, func() {
-		newBackwardWithSize(strings.NewReader(""), endPosition, 100, 10)
+		NewBackwardWithSize(strings.NewReader(""), endPosition, 100, 10)
 	})
 }
 
@@ -68,7 +68,7 @@ func TestBackward_NewBackwardWithSize(t *testing.T) {
 	maxBufferSize := 4096
 
 	// when
-	backward := newBackwardWithSize(reader, position, maxChunkSize, maxBufferSize)
+	backward := NewBackwardWithSize(reader, position, maxChunkSize, maxBufferSize)
 
 	// then
 	assert.Equal(t, backward.reader, reader)
@@ -80,7 +80,7 @@ func TestBackward_NewBackwardWithSize(t *testing.T) {
 
 func TestBackward_EndOfFile_False(t *testing.T) {
 	// given
-	backward := newBackward(strings.NewReader(""), 0)
+	backward := NewBackward(strings.NewReader(""), 0)
 
 	// when
 	backward.readerPos = 1
@@ -91,7 +91,7 @@ func TestBackward_EndOfFile_False(t *testing.T) {
 
 func TestBackward_EndOfFile_True(t *testing.T) {
 	// given
-	backward := newBackward(strings.NewReader(""), 0)
+	backward := NewBackward(strings.NewReader(""), 0)
 
 	// when
 	backward.readerPos = -1
@@ -108,7 +108,7 @@ func TestBackward_EndOfFile_True(t *testing.T) {
 
 func TestBackward_EndOfScan_False(t *testing.T) {
 	// given
-	backward := newBackward(strings.NewReader(""), 0)
+	backward := NewBackward(strings.NewReader(""), 0)
 
 	// when
 	backward.readerPos = -1
@@ -120,7 +120,7 @@ func TestBackward_EndOfScan_False(t *testing.T) {
 
 func TestBackward_EndOfScan_True(t *testing.T) {
 	// given
-	backward := newBackward(strings.NewReader(""), 0)
+	backward := NewBackward(strings.NewReader(""), 0)
 
 	// when
 	backward.readerPos = -1
@@ -132,7 +132,7 @@ func TestBackward_EndOfScan_True(t *testing.T) {
 
 func TestBackward_AllocateChunk(t *testing.T) {
 	// given
-	backward := newBackwardWithSize(strings.NewReader("abcdefgh"), 8, 4, 4)
+	backward := NewBackwardWithSize(strings.NewReader("abcdefgh"), 8, 4, 4)
 
 	// when
 	err := backward.allocateChunk()
@@ -145,7 +145,7 @@ func TestBackward_AllocateChunk(t *testing.T) {
 
 func TestBackward_AllocateChunk_GreaterThanReaderPosWhenFirstAllocated(t *testing.T) {
 	// given
-	backward := newBackwardWithSize(strings.NewReader("abcd"), 4, 4, 4)
+	backward := NewBackwardWithSize(strings.NewReader("abcd"), 4, 4, 4)
 	backward.readerPos = 2
 
 	// when
@@ -159,7 +159,7 @@ func TestBackward_AllocateChunk_GreaterThanReaderPosWhenFirstAllocated(t *testin
 
 func TestBackward_AllocateChunk_GreaterThanReaderPosWhenAlreadyAllocated(t *testing.T) {
 	// given
-	backward := newBackwardWithSize(strings.NewReader("abcdef"), 6, 4, 4)
+	backward := NewBackwardWithSize(strings.NewReader("abcdef"), 6, 4, 4)
 
 	// when
 	err := backward.allocateChunk()
@@ -184,7 +184,7 @@ func TestBackward_AllocateChunk_GreaterThanReaderPosWhenAlreadyAllocated(t *test
 func TestBackward_AllocateChunk_WithPosition(t *testing.T) {
 	// given
 	data := "abcd\nefgh\nijkl"
-	backward := newBackwardWithSize(strings.NewReader(data), len(data)-2, 4, 14)
+	backward := NewBackwardWithSize(strings.NewReader(data), len(data)-2, 4, 14)
 
 	// when
 	err := backward.allocateChunk()
@@ -197,7 +197,7 @@ func TestBackward_AllocateChunk_WithPosition(t *testing.T) {
 func TestBackward_AllocateChunk_InvalidPosition(t *testing.T) {
 	// given
 	data := "abcd\nefgh\nijkl"
-	backward := newBackwardWithSize(strings.NewReader(data), len(data)+1, 4, 14)
+	backward := NewBackwardWithSize(strings.NewReader(data), len(data)+1, 4, 14)
 
 	// when
 	err := backward.allocateChunk()
@@ -212,7 +212,7 @@ func TestBackward_AllocateChunk_ReadError(t *testing.T) {
 	readErr := errors.New("")
 	reader := new(ReaderMock)
 	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
-	backward := newBackward(reader, 10)
+	backward := NewBackward(reader, 10)
 
 	// when
 	err := backward.allocateChunk()
@@ -225,7 +225,7 @@ func TestBackward_AllocateChunk_ReadFailure(t *testing.T) {
 	// given
 	reader := new(ReaderMock)
 	reader.On("ReadAt", mock.Anything, mock.Anything).Return(10, nil)
-	backward := newBackward(reader, 20)
+	backward := NewBackward(reader, 20)
 
 	// when
 	err := backward.allocateChunk()
@@ -236,7 +236,7 @@ func TestBackward_AllocateChunk_ReadFailure(t *testing.T) {
 
 func TestBackward_AllocateChunk_LessThanReaderPos(t *testing.T) {
 	// given
-	backward := newBackwardWithSize(strings.NewReader("abcdef"), 6, 4, 4)
+	backward := NewBackwardWithSize(strings.NewReader("abcdef"), 6, 4, 4)
 
 	// when
 	err := backward.allocateChunk()
@@ -250,7 +250,7 @@ func TestBackward_AllocateChunk_LessThanReaderPos(t *testing.T) {
 func TestBackward_AllocateBuffer(t *testing.T) {
 	// given
 	chunk := []byte("abcd")
-	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), len(chunk))
+	backward := NewBackwardWithSize(strings.NewReader(""), 0, len(chunk), len(chunk))
 	backward.chunk = chunk
 
 	// when
@@ -266,7 +266,7 @@ func TestBackward_AllocateBuffer_BufferOverflow(t *testing.T) {
 	// given
 	chunk := []byte("abcd")
 	buffer := make([]byte, 1, len(chunk))
-	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	backward := NewBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
 	backward.chunk = chunk
 	backward.buffer = buffer
 
@@ -284,7 +284,7 @@ func TestBackward_AllocateBuffer_BufferExpanded(t *testing.T) {
 	chunk := []byte("abcd")
 	buffer := make([]byte, 1, len(chunk)+1)
 	buffer[0] = 'e'
-	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	backward := NewBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
 	backward.chunk = chunk
 	backward.buffer = buffer
 
@@ -302,7 +302,7 @@ func TestBackward_AllocateBuffer_BufferReused(t *testing.T) {
 	chunk := []byte("abcd")
 	buffer := make([]byte, 1, 10)
 	buffer[0] = 'e'
-	backward := newBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	backward := NewBackwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
 	backward.chunk = chunk
 	backward.buffer = buffer
 
@@ -317,7 +317,7 @@ func TestBackward_AllocateBuffer_BufferReused(t *testing.T) {
 
 func TestBackward_RemoveLineFromBuffer(t *testing.T) {
 	// given
-	backward := newBackwardWithSize(strings.NewReader(""), 16, 4, 8)
+	backward := NewBackwardWithSize(strings.NewReader(""), 16, 4, 8)
 	backward.buffer = []byte("a\r\ndefg\r")
 
 	// when
@@ -332,7 +332,7 @@ func TestBackward_RemoveLineFromBuffer(t *testing.T) {
 
 func TestBackward_RemoveLineFromBuffer_NoLineFeed(t *testing.T) {
 	// given
-	backward := newBackwardWithSize(strings.NewReader(""), 5, 4, 4)
+	backward := NewBackwardWithSize(strings.NewReader(""), 5, 4, 4)
 	backward.buffer = []byte("abcde")
 
 	// when
@@ -348,7 +348,7 @@ func TestBackward_RemoveLineFromBuffer_NoLineFeed(t *testing.T) {
 func TestBackward_Read(t *testing.T) {
 	// given
 	data := "abcd\nefgh\nijkl"
-	backward := newBackwardWithSize(strings.NewReader(data), len(data), 4, 14)
+	backward := NewBackwardWithSize(strings.NewReader(data), len(data), 4, 14)
 
 	// when
 	err := backward.read()
@@ -404,7 +404,7 @@ func TestBackward_Read_AllocateChunkError(t *testing.T) {
 	readErr := errors.New("")
 	reader := new(ReaderMock)
 	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
-	backward := newBackward(reader, 10)
+	backward := NewBackward(reader, 10)
 
 	// when
 	err := backward.read()
@@ -419,7 +419,7 @@ func TestBackward_Read_AllocateBufferError(t *testing.T) {
 	data := "abcd"
 	buffer := make([]byte, 1, len(data))
 	readerPos := 4
-	backward := newBackwardWithSize(strings.NewReader(data), readerPos, len(data), cap(buffer))
+	backward := NewBackwardWithSize(strings.NewReader(data), readerPos, len(data), cap(buffer))
 	backward.buffer = buffer
 
 	// when
@@ -433,7 +433,7 @@ func TestBackward_Read_AllocateBufferError(t *testing.T) {
 func TestBackward_Line(t *testing.T) {
 	// given
 	data := "a\nb\r\ncdef\nghij"
-	backward := newBackwardWithSize(strings.NewReader(data), len(data), 4, 8)
+	backward := NewBackwardWithSize(strings.NewReader(data), len(data), 4, 8)
 
 	// when
 	line, err := backward.Line()
@@ -501,7 +501,7 @@ func TestBackward_Line_Error(t *testing.T) {
 	readErr := errors.New("")
 	reader := new(ReaderMock)
 	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
-	backward := newBackward(reader, 100)
+	backward := NewBackward(reader, 100)
 
 	// when
 	line, err := backward.Line()
@@ -520,7 +520,7 @@ func TestBackward_Line_Error(t *testing.T) {
 
 func TestBackward_Line_AlreadyEndOfScan(t *testing.T) {
 	// given
-	backward := newBackward(strings.NewReader(""), endPosition)
+	backward := NewBackward(strings.NewReader(""), endPosition)
 
 	// when
 	line, err := backward.Line()
@@ -535,7 +535,7 @@ func TestBackward_Line_AlreadyEndOfScan(t *testing.T) {
 func TestBackward_Line_LineFeedOnly(t *testing.T) {
 	// given
 	data := "\n\r\n\n"
-	backward := newBackward(strings.NewReader(data), len(data))
+	backward := NewBackward(strings.NewReader(data), len(data))
 
 	// when
 	line, err := backward.Line()
@@ -577,7 +577,7 @@ func TestBackward_Line_LineFeedOnly(t *testing.T) {
 func TestBackward_Position(t *testing.T) {
 	// given
 	data := "abcdefgh\r\nhij"
-	backward := newBackward(strings.NewReader(data), len(data))
+	backward := NewBackward(strings.NewReader(data), len(data))
 
 	// when
 	line, err := backward.Line()
@@ -588,7 +588,7 @@ func TestBackward_Position(t *testing.T) {
 	assert.Equal(t, backward.Position(), 9)
 
 	// given
-	backward = newBackward(strings.NewReader(data), backward.Position())
+	backward = NewBackward(strings.NewReader(data), backward.Position())
 
 	// when
 	line, err = backward.Line()

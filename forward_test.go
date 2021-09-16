@@ -15,7 +15,7 @@ func TestForward_NewForward(t *testing.T) {
 	position := 100
 
 	// when
-	scanner := newForward(reader, position)
+	scanner := NewForward(reader, position)
 
 	// then
 	assert.Equal(t, scanner.reader, reader)
@@ -28,31 +28,31 @@ func TestForward_NewForward(t *testing.T) {
 
 func TestForward_NewForward_ErrNilReader(t *testing.T) {
 	assert.PanicsWithValue(t, ErrNilReader, func() {
-		newForward(nil, endPosition)
+		NewForward(nil, endPosition)
 	})
 }
 
 func TestForward_NewForward_ErrInvalidMaxChunkSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrInvalidMaxChunkSize, func() {
-		newForwardWithSize(strings.NewReader(""), endPosition, 0, 100)
+		NewForwardWithSize(strings.NewReader(""), endPosition, 0, 100)
 	})
 }
 
 func TestForward_NewForward_ErrInvalidMaxBufferSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrInvalidMaxBufferSize, func() {
-		newForwardWithSize(strings.NewReader(""), endPosition, 100, 0)
+		NewForwardWithSize(strings.NewReader(""), endPosition, 100, 0)
 	})
 }
 
 func TestForward_NewForward_ErrGreaterBufferSize(t *testing.T) {
 	assert.PanicsWithValue(t, ErrGreaterBufferSize, func() {
-		newForwardWithSize(strings.NewReader(""), endPosition, 100, 10)
+		NewForwardWithSize(strings.NewReader(""), endPosition, 100, 10)
 	})
 }
 
 func TestForward_EndOfFile_False(t *testing.T) {
 	// given
-	forward := newForward(strings.NewReader(""), 0)
+	forward := NewForward(strings.NewReader(""), 0)
 
 	// when
 	forward.readerPos = 0
@@ -63,7 +63,7 @@ func TestForward_EndOfFile_False(t *testing.T) {
 
 func TestForward_EndOfFile_True(t *testing.T) {
 	// given
-	forward := newForward(strings.NewReader(""), 0)
+	forward := NewForward(strings.NewReader(""), 0)
 
 	// when
 	forward.readerPos = endPosition
@@ -74,7 +74,7 @@ func TestForward_EndOfFile_True(t *testing.T) {
 
 func TestForward_EndOfScan_False(t *testing.T) {
 	// given
-	forward := newForward(strings.NewReader(""), 0)
+	forward := NewForward(strings.NewReader(""), 0)
 
 	// when
 	forward.readerPos = -1
@@ -86,7 +86,7 @@ func TestForward_EndOfScan_False(t *testing.T) {
 
 func TestForward_EndOfScan_True(t *testing.T) {
 	// given
-	forward := newForward(strings.NewReader(""), 0)
+	forward := NewForward(strings.NewReader(""), 0)
 
 	// when
 	forward.readerPos = endPosition
@@ -98,7 +98,7 @@ func TestForward_EndOfScan_True(t *testing.T) {
 
 func TestForward_AllocateChunk(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader("abcdefgh"), 0, 4, 4)
+	forward := NewForwardWithSize(strings.NewReader("abcdefgh"), 0, 4, 4)
 	forward.readerPos = 4
 
 	// when
@@ -113,7 +113,7 @@ func TestForward_AllocateChunk(t *testing.T) {
 
 func TestForward_AllocateChunk_AlreadyAllocated(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader("abcdefgh"), 0, 4, 4)
+	forward := NewForwardWithSize(strings.NewReader("abcdefgh"), 0, 4, 4)
 	forward.readerPos = 4
 
 	// when
@@ -129,7 +129,7 @@ func TestForward_AllocateChunk_AlreadyAllocated(t *testing.T) {
 
 func TestForward_AllocateChunk_WithPosition(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader("abcdefg"), 2, 4, 4)
+	forward := NewForwardWithSize(strings.NewReader("abcdefg"), 2, 4, 4)
 
 	// when
 	err := forward.allocateChunk()
@@ -146,7 +146,7 @@ func TestForward_AllocateChunk_ReadError(t *testing.T) {
 	readErr := errors.New("")
 	reader := new(ReaderMock)
 	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
-	forward := newForward(reader, 10)
+	forward := NewForward(reader, 10)
 
 	// when
 	err := forward.allocateChunk()
@@ -158,13 +158,13 @@ func TestForward_AllocateChunk_ReadError(t *testing.T) {
 
 func TestForward_AllocateChunk_EndOfFile(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader("ab"), 0, 4, 4)
+	forward := NewForwardWithSize(strings.NewReader("ab"), 0, 4, 4)
 
 	// when
 	err := forward.allocateChunk()
 
 	// then
-	assert.Equal(t, err, io.EOF)
+	assert.Nil(t, err)
 	assert.True(t, forward.endOfFile())
 }
 
@@ -174,7 +174,7 @@ func TestForward_AllocateBuffer(t *testing.T) {
 	buffer := make([]byte, 0, 8)
 	buffer = append(buffer, []byte("abcd")...)
 	lineStartPos := 4
-	forward := newForwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	forward := NewForwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
 	forward.chunk = chunk
 	forward.buffer = buffer
 	forward.bufferLineStartPos = 4
@@ -192,7 +192,7 @@ func TestForward_AllocateBuffer(t *testing.T) {
 func TestForward_AllocateBuffer_EmptyChunk(t *testing.T) {
 	// given
 	lineStartPos := 4
-	forward := newForward(strings.NewReader(""), 0)
+	forward := NewForward(strings.NewReader(""), 0)
 	forward.bufferLineStartPos = 4
 
 	// when
@@ -210,7 +210,7 @@ func TestForward_AllocateBuffer_BufferOverflow(t *testing.T) {
 	chunk := []byte("ab")
 	buffer := make([]byte, 4)
 	lineStartPos := 1
-	forward := newForwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
+	forward := NewForwardWithSize(strings.NewReader(""), 0, len(chunk), cap(buffer))
 	forward.chunk = chunk
 	forward.buffer = buffer
 	forward.bufferLineStartPos = lineStartPos
@@ -229,7 +229,7 @@ func TestForward_AllocateBuffer_BufferExpanded(t *testing.T) {
 	chunk := []byte("fgh")
 	buffer := []byte("a\nbcde")
 	bufferLineStartPos := 2
-	forward := newForwardWithSize(strings.NewReader(""), 0, len(chunk), 1024)
+	forward := NewForwardWithSize(strings.NewReader(""), 0, len(chunk), 1024)
 	forward.chunk = chunk
 	forward.buffer = buffer
 	forward.bufferLineStartPos = bufferLineStartPos
@@ -249,7 +249,7 @@ func TestForward_AllocateBuffer_BufferReused(t *testing.T) {
 	chunk := []byte("fg")
 	buffer := []byte("a\nbcde")
 	bufferLineStartPos := 2
-	forward := newForwardWithSize(strings.NewReader(""), 0, len(chunk), 1024)
+	forward := NewForwardWithSize(strings.NewReader(""), 0, len(chunk), 1024)
 	forward.chunk = chunk
 	forward.buffer = buffer
 	forward.bufferLineStartPos = bufferLineStartPos
@@ -269,7 +269,7 @@ func TestForward_RemoveLineFromBuffer(t *testing.T) {
 	readerLineStartPos := 100
 	bufferLineStartPos := 3
 	lineSize := 6
-	forward := newForwardWithSize(strings.NewReader(""), 0, 4, 4)
+	forward := NewForwardWithSize(strings.NewReader(""), 0, 4, 4)
 	forward.buffer = []byte("ab\ncdefg\r\n")
 	forward.readerLineStartPos = readerLineStartPos
 	forward.bufferLineStartPos = bufferLineStartPos
@@ -285,7 +285,7 @@ func TestForward_RemoveLineFromBuffer(t *testing.T) {
 
 func TestForward_Read(t *testing.T) {
 	// given
-	forward := newForwardWithSize(strings.NewReader("abcd\nefgh\nijkl"), 0, 4, 14)
+	forward := NewForwardWithSize(strings.NewReader("abcd\nefgh\nijkl"), 0, 4, 14)
 
 	// when
 	err := forward.read()
@@ -339,7 +339,7 @@ func TestForward_Read_AllocateChunkError(t *testing.T) {
 	readErr := errors.New("")
 	reader := new(ReaderMock)
 	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
-	forward := newForward(reader, 10)
+	forward := NewForward(reader, 10)
 
 	// when
 	err := forward.read()
@@ -352,7 +352,7 @@ func TestForward_Read_AllocateChunkError(t *testing.T) {
 func TestForward_Read_AllocateChunkEndOfFile(t *testing.T) {
 	// given
 	data := "abcd\nefgh\nijkl"
-	forward := newForward(strings.NewReader("abcd\nefgh\nijkl"), 0)
+	forward := NewForward(strings.NewReader("abcd\nefgh\nijkl"), 0)
 
 	// when
 	err := forward.read()
@@ -368,7 +368,7 @@ func TestForward_Read_AllocateBufferError(t *testing.T) {
 	// given
 	data := "abcdefg"
 	buffer := "wxyz"
-	forward := newForwardWithSize(strings.NewReader(data), 0, 4, len(buffer))
+	forward := NewForwardWithSize(strings.NewReader(data), 0, 4, len(buffer))
 	forward.buffer = []byte(buffer)
 	forward.readerPos = 6
 
@@ -385,7 +385,7 @@ func TestForward_Read_AllocateBufferError(t *testing.T) {
 func TestForward_Line(t *testing.T) {
 	// given
 	data := "a\nb\r\ncdef\ngh\ni"
-	forward := newForwardWithSize(strings.NewReader(data), 0, 4, 8)
+	forward := NewForwardWithSize(strings.NewReader(data), 0, 4, 8)
 
 	// when
 	line, err := forward.Line()
@@ -473,7 +473,7 @@ func TestForward_Line_Error(t *testing.T) {
 	readErr := errors.New("")
 	reader := new(ReaderMock)
 	reader.On("ReadAt", mock.Anything, mock.Anything).Return(0, readErr)
-	forward := newForward(reader, 0)
+	forward := NewForward(reader, 0)
 
 	// when
 	line, err := forward.Line()
@@ -492,7 +492,7 @@ func TestForward_Line_Error(t *testing.T) {
 
 func TestForward_Line_AlreadyEndOfScan(t *testing.T) {
 	// given
-	forward := newForward(strings.NewReader(""), endPosition)
+	forward := NewForward(strings.NewReader(""), endPosition)
 
 	// when
 	line, err := forward.Line()
@@ -507,7 +507,7 @@ func TestForward_Line_AlreadyEndOfScan(t *testing.T) {
 func TestForward_Line_LineFeedOnly(t *testing.T) {
 	// given
 	data := "\n\r\n\n"
-	forward := newForward(strings.NewReader(data), 0)
+	forward := NewForward(strings.NewReader(data), 0)
 
 	// when
 	line, err := forward.Line()
@@ -543,7 +543,7 @@ func TestForward_Line_LineFeedOnly(t *testing.T) {
 func TestForward_Position(t *testing.T) {
 	// given
 	data := "abcdefgh\r\nhij"
-	forward := newForward(strings.NewReader(data), 0)
+	forward := NewForward(strings.NewReader(data), 0)
 
 	// when
 	line, err := forward.Line()
@@ -554,7 +554,7 @@ func TestForward_Position(t *testing.T) {
 	assert.Equal(t, forward.Position(), 10)
 
 	// given
-	forward = newForward(strings.NewReader(data), forward.Position())
+	forward = NewForward(strings.NewReader(data), forward.Position())
 
 	// when
 	line, err = forward.Line()

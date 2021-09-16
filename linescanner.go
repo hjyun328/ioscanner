@@ -2,7 +2,6 @@ package linescanner
 
 import (
 	"errors"
-	"io"
 )
 
 var (
@@ -21,34 +20,7 @@ const (
 	endPosition          = -1
 )
 
-type Direction int
-
-const (
-	Forward Direction = iota
-	Backward
-)
-
 type LineScanner interface {
 	Line() (line string, err error)
 	Position() int
-}
-
-func New(direction Direction, reader io.ReaderAt, position int) LineScanner {
-	switch direction {
-	case Forward:
-		return newForward(reader, position)
-	case Backward:
-		return newBackward(reader, position)
-	}
-	return nil
-}
-
-func NewWithSize(direction Direction, reader io.ReaderAt, position int, chunkSize, bufferSize int) LineScanner {
-	switch direction {
-	case Forward:
-		return newForwardWithSize(reader, position, chunkSize, bufferSize)
-	case Backward:
-		return newBackward(reader, position)
-	}
-	return nil
 }
